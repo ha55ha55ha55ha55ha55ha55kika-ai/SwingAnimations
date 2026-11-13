@@ -12,6 +12,7 @@ public final class HandProfile {
     public float x, y, z;               // -1..1
     public float pitch, yaw, roll;      // -180..180
     public float scale = 1f;            // 0.3..1.5
+    public float intensity = 1f;        // 0.1..3.0 (сила анимации)
     public boolean walkSway = false;
     public boolean critAnimation = false;
 
@@ -43,7 +44,7 @@ public final class HandProfile {
     public void copyFrom(HandProfile o) {
         mode = o.mode; speed = o.speed; curve = o.curve; curveStrength = o.curveStrength;
         x = o.x; y = o.y; z = o.z; pitch = o.pitch; yaw = o.yaw; roll = o.roll;
-        scale = o.scale; walkSway = o.walkSway; critAnimation = o.critAnimation;
+        scale = o.scale; intensity = o.intensity; walkSway = o.walkSway; critAnimation = o.critAnimation;
     }
 
     public void sanitize() {
@@ -54,6 +55,7 @@ public final class HandProfile {
         x = c(x, -1f, 1f, 0f); y = c(y, -1f, 1f, 0f); z = c(z, -1f, 1f, 0f);
         pitch = c(pitch, -180f, 180f, 0f); yaw = c(yaw, -180f, 180f, 0f); roll = c(roll, -180f, 180f, 0f);
         scale = c(scale, 0.3f, 1.5f, 1f);
+        intensity = c(intensity, 0.1f, 3f, 1f);
     }
 
     private static float c(float v, float lo, float hi, float def) {

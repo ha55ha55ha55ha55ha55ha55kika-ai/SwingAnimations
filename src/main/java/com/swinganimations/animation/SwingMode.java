@@ -125,6 +125,66 @@ public enum SwingMode implements SwingAnimation {
             Xf.rotY(m, side * wave2 * 22f);
             Xf.rotZ(m, side * (wave3 * 18f - 20f * a));
         }
+    },
+
+    /** Ванильные повороты, но с множителем «Сила анимации» (s.intensity). */
+    VANILLA_PLUS {
+        @Override
+        public void apply(MatrixStack m, float p, Arm arm, HandProfile s) {
+            float side = Xf.sign(arm);
+            float k = s.intensity;
+            float f = (float) Math.sin(p * p * Math.PI);
+            float g = (float) Math.sin(Math.sqrt(p) * Math.PI);
+            Xf.rotY(m, side * (45f + f * -20f * k));
+            Xf.rotZ(m, side * g * -20f * k);
+            Xf.rotX(m, g * -80f * k);
+            Xf.rotY(m, side * -45f);
+        }
+    },
+
+    /** Поза «боком»: предмет повёрнут и выталкивается вперёд. Поза в покое НЕ единичная. */
+    PUSH {
+        @Override
+        public void apply(MatrixStack m, float p, Arm arm, HandProfile s) {
+            float side = Xf.sign(arm);
+            float k = s.intensity;
+            float a = Xf.bell(p);
+            Xf.translate(m, 0f, 0f, (k / 3f) * -a);
+            Xf.rotY(m, 75f * side);
+            Xf.rotZ(m, (-75f * (k / 4f) * a - 60f) * side);
+            Xf.rotX(m, -75f);
+        }
+    },
+
+    /** Плоская поза: предмет лежит горизонтально, удар по вертикальной дуге. Поза в покое НЕ единичная. */
+    FLAT {
+        @Override
+        public void apply(MatrixStack m, float p, Arm arm, HandProfile s) {
+            float side = Xf.sign(arm);
+            float k = s.intensity;
+            float a = Xf.bell(p);
+            Xf.translate(m, 0.09f * side, 0.22f, -0.08f);
+            Xf.rotY(m, 90f * side);
+            Xf.rotZ(m, -70f * side);
+            Xf.rotX(m, -100f - 60f * k * a);
+        }
+    },
+
+    /** Поза блока 1.8 в покое + замах по дуге. Поза в покое НЕ единичная. */
+    BLOCK_SWING {
+        @Override
+        public void apply(MatrixStack m, float p, Arm arm, HandProfile s) {
+            float side = Xf.sign(arm);
+            float k = s.intensity;
+            float g = (float) Math.sin(Math.sqrt(p) * Math.PI);
+            Xf.translate(m, 0f, 0.20f, 0f);
+            Xf.rotY(m, 30f * side);
+            Xf.rotY(m, g * 75f * side * k);
+            Xf.rotX(m, g * -65f * k);
+            Xf.rotY(m, 30f * side);
+            Xf.rotX(m, -80f);
+            Xf.rotY(m, 35f * side);
+        }
     };
 
     public String translationKey() {

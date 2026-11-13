@@ -16,6 +16,12 @@ import net.minecraft.util.Hand;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
+/**
+ * 1) @WrapMethod на renderFirstPersonItem: выбор профиля, подмена swingProgress, push/pop.
+ * 2) @WrapOperation на вызов applySwingOffset. В 1.21.4 он вызывается не напрямую из
+ *    renderFirstPersonItem, а из вспомогательного метода, поэтому ищем вызов по ВСЕМ методам класса
+ *    (swingArm + renderFirstPersonItem). require = 0: если вызов не найден, игра НЕ крашится, мод сам отключается.
+ */
 @Mixin(HeldItemRenderer.class)
 public abstract class HeldItemRendererMixin {
 
@@ -69,7 +75,7 @@ public abstract class HeldItemRendererMixin {
     }
 
     @WrapOperation(
-            method = "/.+/",
+            method = {"swingArm", "renderFirstPersonItem"},
             at = @org.spongepowered.asm.mixin.injection.At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/client/render/item/HeldItemRenderer;applySwingOffset(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/util/Arm;F)V"),

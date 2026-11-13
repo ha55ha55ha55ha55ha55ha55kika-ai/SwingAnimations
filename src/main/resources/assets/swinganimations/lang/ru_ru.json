@@ -3,7 +3,6 @@
   "key.swinganimations.open": "Открыть настройки",
   "key.swinganimations.toggle": "Включить/выключить мод",
   "key.swinganimations.next_preset": "Следующий пресет",
-
   "swinganimations.title": "SwingAnimations",
   "swinganimations.on": "ВКЛ",
   "swinganimations.off": "ВЫКЛ",
@@ -11,7 +10,6 @@
   "swinganimations.tab.main": "Основная рука",
   "swinganimations.tab.off": "Вторая рука",
   "swinganimations.tab.presets": "Пресеты",
-
   "swinganimations.option.enabled": "Мод: %s",
   "swinganimations.option.filter": "Применять к: %s",
   "swinganimations.filter.swords": "Только мечи",
@@ -21,7 +19,6 @@
   "swinganimations.option.custom_hint": "minecraft:diamond_sword, minecraft:stick",
   "swinganimations.hint.1": "Предметы с use-анимацией (щит, лук, еда...) не затрагиваются.",
   "swinganimations.hint.2": "Только визуал: урон, кулдаун и пакеты не меняются.",
-
   "swinganimations.option.mode": "Режим: %s",
   "swinganimations.mode.vanilla": "Ванильный",
   "swinganimations.mode.block_hit": "Блок-хит 1.8",
@@ -31,14 +28,16 @@
   "swinganimations.mode.punch": "Выпад",
   "swinganimations.mode.swong": "Swong",
   "swinganimations.mode.stab": "Колющий",
+  "swinganimations.mode.vanilla_plus": "Ванильный+",
+  "swinganimations.mode.push": "Выпад боком",
+  "swinganimations.mode.flat": "Плоский",
+  "swinganimations.mode.block_swing": "Блок-замах",
   "swinganimations.mode.exhibition": "Exhibition",
-
   "swinganimations.option.curve": "Кривая: %s",
   "swinganimations.curve.linear": "Линейная",
   "swinganimations.curve.ease_in": "Ease-in",
   "swinganimations.curve.ease_out": "Ease-out",
   "swinganimations.curve.ease_in_out": "Ease-in-out",
-
   "swinganimations.slider.speed": "Скорость: %sx",
   "swinganimations.slider.strength": "Резкость: %s",
   "swinganimations.slider.x": "Позиция X: %s",
@@ -47,13 +46,29 @@
   "swinganimations.slider.pitch": "Pitch: %s°",
   "swinganimations.slider.yaw": "Yaw: %s°",
   "swinganimations.slider.roll": "Roll: %s°",
+  "swinganimations.slider.intensity": "Сила анимации: %s",
   "swinganimations.slider.scale": "Масштаб: %s",
-
   "swinganimations.option.walk": "Покачивание при ходьбе: %s",
   "swinganimations.option.crit": "Анимация крита: %s",
   "swinganimations.option.test": "Тест свинга: %s",
-
   "swinganimations.preset.save": "Сохранить как пресет",
   "swinganimations.msg.toggle": "SwingAnimations: %s",
-  "swinganimations.msg.preset": "Пресет SwingAnimations: %s"
+  "swinganimations.msg.preset": "Пресет SwingAnimations: %s",
+  "swinganimations.ui.enabled": "Мод",
+  "swinganimations.ui.filter": "Применять к",
+  "swinganimations.ui.mode": "Режим",
+  "swinganimations.ui.curve": "Кривая",
+  "swinganimations.ui.speed": "Скорость",
+  "swinganimations.ui.strength": "Резкость",
+  "swinganimations.ui.x": "Позиция X",
+  "swinganimations.ui.y": "Позиция Y",
+  "swinganimations.ui.z": "Позиция Z",
+  "swinganimations.ui.intensity": "Сила",
+  "swinganimations.ui.pitch": "Pitch",
+  "swinganimations.ui.yaw": "Yaw",
+  "swinganimations.ui.roll": "Roll",
+  "swinganimations.ui.scale": "Масштаб",
+  "swinganimations.ui.walk": "Покачивание",
+  "swinganimations.ui.crit": "Анимация крита",
+  "swinganimations.ui.test": "Тест свинга"
 }
