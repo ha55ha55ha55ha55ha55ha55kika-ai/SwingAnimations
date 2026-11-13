@@ -16,13 +16,6 @@ import net.minecraft.util.Hand;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
-/**
- * Две точки входа (обе на MixinExtras, он встроен в Fabric Loader 0.16):
- *  1) @WrapMethod на renderFirstPersonItem: выбор профиля, подмена swingProgress, изолирующий push/pop.
- *  2) @WrapOperation на вызов applySwingOffset: он идёт ПОСЛЕ applyEquipOffset, т.е. матрица уже в
- *     «руке», и именно здесь применяем позицию, поворот, масштаб и математику режима.
- * @Overwrite не используется. Состояние кадра хранится в полях экземпляра (рендер однопоточный).
- */
 @Mixin(HeldItemRenderer.class)
 public abstract class HeldItemRendererMixin {
 
@@ -31,6 +24,7 @@ public abstract class HeldItemRendererMixin {
     @Unique private float swa$time;
     @Unique private float swa$walk;
     @Unique private boolean swa$crit;
+    @Unique private boolean swa$applied;
 
     @WrapMethod(method = "renderFirstPersonItem")
     private void swa$renderFirstPersonItem(AbstractClientPlayerEntity player, float tickDelta, float pitch,
@@ -39,6 +33,7 @@ public abstract class HeldItemRendererMixin {
                                            Operation<Void> original) {
         float passed = swingProgress;
         swa$profile = null;
+        swa$applied = false;
         try {
             HandProfile profile = SwingLogic.select(player, hand, item);
             if (profile != null) {
@@ -48,8 +43,6 @@ public abstract class HeldItemRendererMixin {
                 swa$time = player.age + tickDelta;
                 swa$walk = profile.walkSway ? SwingLogic.walkFactor(player) : 0f;
                 swa$crit = profile.critAnimation && SwingLogic.isCrit(player);
-                // Vanilla-режим: ваниль сама крутит, но уже с пропущенным через скорость/кривую прогрессом.
-                // Остальные режимы: ванильный свинг обнуляем, математику ведёт режим.
                 passed = profile.mode == SwingMode.VANILLA ? shaped : 0f;
                 swa$profile = profile;
             }
@@ -59,6 +52,7 @@ public abstract class HeldItemRendererMixin {
             passed = swingProgress;
         }
 
+        HandProfile active = swa$profile;
         matrices.push();
         try {
             original.call(player, tickDelta, pitch, hand, passed, item, equipProgress,
@@ -67,14 +61,19 @@ public abstract class HeldItemRendererMixin {
             matrices.pop();
             swa$profile = null;
         }
+
+        if (active != null && !swa$applied) {
+            SwingLogic.fail(new IllegalStateException(
+                    "applySwingOffset hook did not fire in this Minecraft version; mod disabled"));
+        }
     }
 
     @WrapOperation(
-            method = "renderFirstPersonItem",
+            method = "/.+/",
             at = @org.spongepowered.asm.mixin.injection.At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/client/render/item/HeldItemRenderer;applySwingOffset(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/util/Arm;F)V"),
-            require = 1)
+            require = 0)
     private void swa$applySwingOffset(HeldItemRenderer instance, MatrixStack matrices, Arm arm,
                                       float progress, Operation<Void> original) {
         HandProfile p = swa$profile;
@@ -82,6 +81,7 @@ public abstract class HeldItemRendererMixin {
             original.call(instance, matrices, arm, progress);
             return;
         }
+        swa$applied = true;
         try {
             SwingLogic.applyAll(matrices, arm, p, swa$progress, swa$time, swa$walk, swa$crit);
         } catch (Throwable t) {
