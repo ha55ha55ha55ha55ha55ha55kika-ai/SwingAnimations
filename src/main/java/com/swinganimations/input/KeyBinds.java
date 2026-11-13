@@ -3,7 +3,6 @@ package com.swinganimations.input;
 import com.swinganimations.config.ConfigManager;
 import com.swinganimations.config.Presets;
 import com.swinganimations.config.SwingConfig;
-import com.swinganimations.gui.SettingsScreen;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.MinecraftClient;
@@ -34,7 +33,7 @@ public final class KeyBinds {
 
     private static void tick(MinecraftClient mc) {
         while (OPEN.wasPressed()) {
-            if (mc.currentScreen == null) mc.setScreen(new SettingsScreen(null));
+            if (mc.currentScreen == null) mc.setScreen(new com.swinganimations.gui.ClickGuiScreen(null));
         }
         SwingConfig cfg = ConfigManager.get();
         while (TOGGLE.wasPressed()) {

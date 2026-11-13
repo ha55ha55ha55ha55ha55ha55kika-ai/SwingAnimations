@@ -4,7 +4,9 @@
   "package": "com.swinganimations.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "HeldItemRendererMixin"
+    "HeldItemRendererMixin",
+    "LivingEntityMixin",
+    "WorldRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -34,6 +34,22 @@ public final class SwingLogic {
         return hand == Hand.MAIN_HAND ? c.mainHand : c.offHand;
     }
 
+    /** Играет ли для этой руки кастомная анимация (тогда её нельзя сбрасывать ударом). */
+    public static boolean keepsAnimation(AbstractClientPlayerEntity player, Hand hand) {
+        if (player == null || hand == null) return false;
+        return select(player, hand, player.getStackInHand(hand)) != null;
+    }
+
+    /** Режим мода активен для предмета в основной руке (для блокировки re-equip). */
+    public static boolean activeForMainHand() {
+        try {
+            AbstractClientPlayerEntity p = MinecraftClient.getInstance().player;
+            return keepsAnimation(p, Hand.MAIN_HAND);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     private static boolean matches(SwingConfig c, ItemStack stack) {
         return switch (c.filter) {
             case ALL -> true;

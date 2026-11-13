@@ -97,4 +97,30 @@ public abstract class HeldItemRendererMixin {
             original.call(instance, matrices, arm, progress);
         }
     }
+
+    /** После удара кулдаун обнуляется и ваниль опускает/переподнимает предмет. Для кастомной анимации отключаем. */
+    @WrapOperation(
+            method = "updateHeldItems",
+            at = @org.spongepowered.asm.mixin.injection.At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/network/ClientPlayerEntity;getAttackCooldownProgress(F)F"),
+            require = 0)
+    private float swa$noCooldownDip(net.minecraft.client.network.ClientPlayerEntity player, float baseTime,
+                                    Operation<Float> original) {
+        if (SwingLogic.activeForMainHand()) return 1.0f;
+        return original.call(player, baseTime);
+    }
+
+    /** Потеря прочности при ударе меняет стек -> ваниль запускает re-equip. Считаем стеки равными, если предмет тот же. */
+    @WrapOperation(
+            method = "updateHeldItems",
+            at = @org.spongepowered.asm.mixin.injection.At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/item/ItemStack;areEqual(Lnet/minecraft/item/ItemStack;Lnet/minecraft/item/ItemStack;)Z"),
+            require = 0)
+    private boolean swa$sameItemNoReequip(ItemStack a, ItemStack b, Operation<Boolean> original) {
+        boolean r = original.call(a, b);
+        if (!r && SwingLogic.activeForMainHand() && a != null && b != null && ItemStack.areItemsEqual(a, b)) return true;
+        return r;
+    }
 }

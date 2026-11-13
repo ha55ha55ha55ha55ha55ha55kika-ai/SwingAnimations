@@ -1,6 +1,6 @@
 package com.swinganimations.compat;
 
-import com.swinganimations.gui.SettingsScreen;
+import com.swinganimations.gui.ClickGuiScreen;
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
 
@@ -8,6 +8,6 @@ import com.terraformersmc.modmenu.api.ModMenuApi;
 public final class ModMenuIntegration implements ModMenuApi {
     @Override
     public ConfigScreenFactory<?> getModConfigScreenFactory() {
-        return SettingsScreen::new;
+        return ClickGuiScreen::new;
     }
 }

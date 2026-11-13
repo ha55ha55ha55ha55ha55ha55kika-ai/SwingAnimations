@@ -13,6 +13,7 @@ public final class SwingAnimationsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         ConfigManager.load();
+        com.swinganimations.module.ModuleManager.init();
         KeyBinds.register();
         LOGGER.info("SwingAnimations initialized (client-only, visual-only).");
     }
