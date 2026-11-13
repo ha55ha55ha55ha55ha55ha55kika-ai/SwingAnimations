@@ -13,9 +13,10 @@ public abstract class Setting {
         this.fallback = fallback;
     }
 
-    public Setting visibleWhen(BooleanSupplier v) {
+    @SuppressWarnings("unchecked")
+    public <T extends Setting> T visibleWhen(BooleanSupplier v) {
         this.visible = v;
-        return this;
+        return (T) this;
     }
 
     public boolean isVisible() {

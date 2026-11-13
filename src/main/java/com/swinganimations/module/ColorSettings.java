@@ -11,9 +11,9 @@ public final class ColorSettings {
 
     public ColorSettings(Module m) {
         mode = m.add(new Setting.Mode("color_mode", "Color", "Accent", "Rainbow", "Custom"));
-        r = m.add(new Setting.Num("red", "Red", 139f, 0f, 255f, 1f).visibleWhen(this::custom));
-        g = m.add(new Setting.Num("green", "Green", 185f, 0f, 255f, 1f).visibleWhen(this::custom));
-        b = m.add(new Setting.Num("blue", "Blue", 255f, 0f, 255f, 1f).visibleWhen(this::custom));
+        r = m.add(new Setting.Num("red", "Red", 139f, 0f, 255f, 1f).<Setting.Num>visibleWhen(this::custom));
+        g = m.add(new Setting.Num("green", "Green", 185f, 0f, 255f, 1f).<Setting.Num>visibleWhen(this::custom));
+        b = m.add(new Setting.Num("blue", "Blue", 255f, 0f, 255f, 1f).<Setting.Num>visibleWhen(this::custom));
     }
 
     private boolean custom() { return mode.is("Custom"); }
