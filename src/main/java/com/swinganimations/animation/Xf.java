@@ -69,6 +69,36 @@ public final class Xf {
         return 1f - u * u * u;
     }
 
+    /** Плавность входа/выхода по отдельности: 0 = линейно, 1 = очень плавно (кроссфейд ease-in и ease-out). */
+    public static float ease(float u, float easeIn, float easeOut) {
+        u = clamp01(u);
+        float a = 1f + 2f * clamp01(easeIn);
+        float b = 1f + 2f * clamp01(easeOut);
+        float in = (float) Math.pow(u, a);
+        float out = 1f - (float) Math.pow(1f - u, b);
+        return (1f - u) * in + u * out;
+    }
+
+    /**
+     * Огибающая удара: замах назад (значения < 0), удар до 1, задержка на пике, плавный возврат в 0.
+     * В p=0 и p=1 возвращает 0. Всё без аллокаций.
+     */
+    public static float envelope(float p, float windup, float hold, float easeIn, float easeOut) {
+        p = clamp01(p);
+        float wd = 0.25f * clamp01(windup);   // доля времени на замах
+        float hd = 0.15f * clamp01(hold);     // доля времени на задержку на пике
+        float r = 1f - wd - hd;
+        float strike = 0.4f * r;
+        float back = 0.35f * clamp01(windup); // отвод назад, в долях амплитуды
+        if (p < wd) return -back * smooth(p / wd);
+        p -= wd;
+        if (p < strike) return lerp(-back, 1f, ease(p / strike, easeIn, easeOut));
+        p -= strike;
+        if (p < hd) return 1f;
+        p -= hd;
+        return 1f - smooth(p / (r - strike));
+    }
+
     /** Быстрый подъём до пика (30% времени) и плавный возврат. */
     public static float pulse(float p) {
         return p < 0.3f ? smooth(p / 0.3f) : 1f - smooth((p - 0.3f) / 0.7f);

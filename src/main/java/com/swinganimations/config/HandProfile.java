@@ -13,6 +13,14 @@ public final class HandProfile {
     public float pitch, yaw, roll;      // -180..180
     public float scale = 1f;            // 0.3..1.5
     public float intensity = 1f;        // 0.1..3.0 (сила анимации)
+    // Тонкая настройка (режимы LYING и STANDING)
+    public float amplitude = 0.65f;     // 0.1..1.5 как далеко идёт удар (<1 = «не до конца»)
+    public float windup = 0.3f;         // 0..1 замах назад
+    public float hold = 0f;             // 0..1 задержка на пике
+    public float easeIn = 0.5f;         // 0..1 плавность начала удара
+    public float easeOut = 0.7f;        // 0..1 плавность конца удара
+    public float thrust = 0.3f;         // 0..1 выпад вперёд
+    public float sway = 0.3f;           // 0..1 боковой уход
     public boolean walkSway = false;
     public boolean critAnimation = false;
 
@@ -44,7 +52,9 @@ public final class HandProfile {
     public void copyFrom(HandProfile o) {
         mode = o.mode; speed = o.speed; curve = o.curve; curveStrength = o.curveStrength;
         x = o.x; y = o.y; z = o.z; pitch = o.pitch; yaw = o.yaw; roll = o.roll;
-        scale = o.scale; intensity = o.intensity; walkSway = o.walkSway; critAnimation = o.critAnimation;
+        scale = o.scale; intensity = o.intensity;
+        amplitude = o.amplitude; windup = o.windup; hold = o.hold; easeIn = o.easeIn; easeOut = o.easeOut;
+        thrust = o.thrust; sway = o.sway; walkSway = o.walkSway; critAnimation = o.critAnimation;
     }
 
     public void sanitize() {
@@ -56,6 +66,13 @@ public final class HandProfile {
         pitch = c(pitch, -180f, 180f, 0f); yaw = c(yaw, -180f, 180f, 0f); roll = c(roll, -180f, 180f, 0f);
         scale = c(scale, 0.3f, 1.5f, 1f);
         intensity = c(intensity, 0.1f, 3f, 1f);
+        amplitude = c(amplitude, 0.1f, 1.5f, 0.65f);
+        windup = c(windup, 0f, 1f, 0.3f);
+        hold = c(hold, 0f, 1f, 0f);
+        easeIn = c(easeIn, 0f, 1f, 0.5f);
+        easeOut = c(easeOut, 0f, 1f, 0.7f);
+        thrust = c(thrust, 0f, 1f, 0.3f);
+        sway = c(sway, 0f, 1f, 0.3f);
     }
 
     private static float c(float v, float lo, float hi, float def) {

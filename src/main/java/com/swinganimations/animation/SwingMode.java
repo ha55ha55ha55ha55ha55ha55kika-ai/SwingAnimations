@@ -21,6 +21,49 @@ public enum SwingMode implements SwingAnimation {
         }
     },
 
+    /**
+     * Лежачий меч: клинок горизонтально, удар плавной дугой. Поза в покое НЕ единичная.
+     * Тонкая настройка: amplitude, windup, hold, easeIn/easeOut, thrust, sway, intensity.
+     */
+    LYING {
+        @Override
+        public void apply(MatrixStack m, float p, Arm arm, HandProfile s) {
+            float side = Xf.sign(arm);
+            float e = Xf.envelope(p, s.windup, s.hold, s.easeIn, s.easeOut);
+            float amp = s.amplitude;
+            float k = s.intensity;
+            float fwd = Math.max(e, 0f);
+            Xf.translate(m, 0.09f * side - 0.04f * side * s.sway * amp * e,
+                    0.22f - 0.03f * amp * e,
+                    -0.08f - 0.25f * s.thrust * amp * fwd);
+            Xf.rotY(m, 90f * side - 14f * side * s.sway * amp * k * e);
+            Xf.rotZ(m, -70f * side);
+            Xf.rotX(m, -100f - 60f * k * amp * e);
+        }
+    },
+
+    /**
+     * Стоячий меч: клинок вертикально, плавный удар, по умолчанию не до конца (amplitude < 1).
+     * Поза в покое почти единичная (лёгкий наклон наружу).
+     */
+    STANDING {
+        @Override
+        public void apply(MatrixStack m, float p, Arm arm, HandProfile s) {
+            float side = Xf.sign(arm);
+            float e = Xf.envelope(p, s.windup, s.hold, s.easeIn, s.easeOut);
+            float amp = s.amplitude;
+            float k = s.intensity;
+            float fwd = Math.max(e, 0f);
+            Xf.translate(m, -0.06f * side * s.sway * amp * e,
+                    -0.04f * amp * e,
+                    -0.22f * s.thrust * amp * fwd);
+            Xf.rotZ(m, -8f * side);
+            Xf.rotY(m, -14f * side * s.sway * amp * k * e);
+            Xf.rotZ(m, -20f * side * amp * k * e);
+            Xf.rotX(m, -58f * amp * k * e);
+        }
+    },
+
     BLOCK_HIT {
         @Override
         public void apply(MatrixStack m, float p, Arm arm, HandProfile s) {

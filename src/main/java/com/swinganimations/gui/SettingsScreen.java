@@ -27,7 +27,7 @@ import java.util.function.Supplier;
  * кнопка «Тест свинга» зацикливает свинг в реальном first-person рендере (фон не блюрится).
  */
 public class SettingsScreen extends Screen {
-    private enum Page { GENERAL, MAIN, OFF, PRESETS }
+    private enum Page { GENERAL, MAIN, OFF, FINE, PRESETS }
 
     private static final int PANEL_L = 6;
     private static final int PANEL_R = 324;
@@ -39,6 +39,7 @@ public class SettingsScreen extends Screen {
     private final Screen parent;
     private final SwingConfig cfg = ConfigManager.get();
     private Page page = Page.GENERAL;
+    private Hand fineHand = Hand.MAIN_HAND;
 
     public SettingsScreen(Screen parent) {
         super(Text.translatable("swinganimations.title"));
@@ -50,7 +51,7 @@ public class SettingsScreen extends Screen {
         Page[] pages = Page.values();
         for (int i = 0; i < pages.length; i++) {
             Page p = pages[i];
-            addDrawableChild(new UiButton(12 + i * 77, 8, 75, 18, UiButton.Kind.TAB,
+            addDrawableChild(new UiButton(12 + i * 61, 8, 59, 18, UiButton.Kind.TAB,
                     () -> Text.translatable("swinganimations.tab." + p.name().toLowerCase(Locale.ROOT)),
                     null, () -> p == page, () -> switchPage(p)));
         }
@@ -58,6 +59,7 @@ public class SettingsScreen extends Screen {
             case GENERAL -> buildGeneral();
             case MAIN -> buildProfile(Hand.MAIN_HAND, cfg.mainHand);
             case OFF -> buildProfile(Hand.OFF_HAND, cfg.offHand);
+            case FINE -> buildFine();
             case PRESETS -> buildPresets();
         }
         addDrawableChild(new UiButton(RX, height - 26, W, 18, UiButton.Kind.PLAIN,
@@ -138,6 +140,32 @@ public class SettingsScreen extends Screen {
                 v -> SwingLogic.previewHand = v ? hand : null));
     }
 
+    private void buildFine() {
+        HandProfile hp = fineHand == Hand.MAIN_HAND ? cfg.mainHand : cfg.offHand;
+        Hand hand = fineHand;
+        addDrawableChild(new UiButton(LX, 36, 304, 20, UiButton.Kind.CHIP,
+                () -> Text.translatable("swinganimations.ui.hand"),
+                () -> Text.translatable(hand == Hand.MAIN_HAND ? "swinganimations.hand.main" : "swinganimations.hand.off"),
+                null, () -> {
+            SwingLogic.previewHand = null;
+            fineHand = hand == Hand.MAIN_HAND ? Hand.OFF_HAND : Hand.MAIN_HAND;
+            rebuild();
+        }));
+        int y = 64;
+        slider(LX, y, "swinganimations.ui.amplitude", 0.1f, 1.5f, hp.amplitude, "%.2f", v -> hp.amplitude = v);
+        slider(RX, y, "swinganimations.ui.ease_in", 0f, 1f, hp.easeIn, "%.2f", v -> hp.easeIn = v);
+        y += STEP;
+        slider(LX, y, "swinganimations.ui.windup", 0f, 1f, hp.windup, "%.2f", v -> hp.windup = v);
+        slider(RX, y, "swinganimations.ui.ease_out", 0f, 1f, hp.easeOut, "%.2f", v -> hp.easeOut = v);
+        y += STEP;
+        slider(LX, y, "swinganimations.ui.hold", 0f, 1f, hp.hold, "%.2f", v -> hp.hold = v);
+        slider(RX, y, "swinganimations.ui.sway", 0f, 1f, hp.sway, "%.2f", v -> hp.sway = v);
+        y += STEP;
+        slider(LX, y, "swinganimations.ui.thrust", 0f, 1f, hp.thrust, "%.2f", v -> hp.thrust = v);
+        addDrawableChild(toggle(RX, y, W, "swinganimations.ui.test", () -> SwingLogic.previewHand == hand,
+                v -> SwingLogic.previewHand = v ? hand : null));
+    }
+
     private void buildPresets() {
         List<String> names = Presets.names(cfg);
         for (int i = 0; i < names.size() && i < 16; i++) {
@@ -193,6 +221,9 @@ public class SettingsScreen extends Screen {
             ctx.fill(164, 36, 165, height - 32, Ui.SEP);
         }
         super.render(ctx, mouseX, mouseY, delta);
+        if (page == Page.FINE) {
+            Ui.text(ctx, Text.translatable("swinganimations.ui.fine_hint"), LX + 2, 166, Ui.TEXT_DIM);
+        }
         if (page == Page.GENERAL) {
             Ui.text(ctx, Text.translatable("swinganimations.option.custom"), LX + 2, 94, Ui.TEXT_DIM);
             Ui.text(ctx, Text.translatable("swinganimations.hint.1"), LX + 2, 140, Ui.TEXT_DIM);
