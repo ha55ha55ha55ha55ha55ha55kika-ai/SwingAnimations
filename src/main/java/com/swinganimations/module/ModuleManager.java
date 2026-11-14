@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.swinganimations.SwingAnimationsClient;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
@@ -30,10 +31,18 @@ import java.util.Map;
 public final class ModuleManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     public static final List<Module> MODULES = new ArrayList<>();
-    private static TargetEspModule targetEsp;
-    private static boolean renderFailed;
+    public static SeeInvisiblesModule seeInvisibles;
+    public static ThemeModule theme;
+    public static LockSlotModule lockSlot;
+    public static ItemScrollerModule itemScroller;
+    public static NoJumpDelayModule noJumpDelay;
+    private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
+    private static final int MAX_RENDER_ERRORS = 5;
 
     private ModuleManager() {}
+
+    /** Сбрасывает счётчик ошибок рендера модуля (при повторном включении). */
+    static void clearRenderErrors(String id) { RENDER_ERRORS.remove(id); }
 
     /** Сохранённое состояние одного модуля. */
     private static final class Saved {
@@ -44,19 +53,32 @@ public final class ModuleManager {
     }
 
     public static void init() {
-        targetEsp = new TargetEspModule();
-        MODULES.add(targetEsp);
+        MODULES.add(new TargetEspModule());
         MODULES.add(new TrailsModule());
         MODULES.add(new JumpCircleModule());
+        MODULES.add(new HeartShowModule());
+        seeInvisibles = new SeeInvisiblesModule();
+        MODULES.add(seeInvisibles);
+        MODULES.add(new InterfaceModule());
+        MODULES.add(new TargetHudModule());
+        MODULES.add(new CooldownsModule());
+        MODULES.add(new NotificationsModule());
+        MODULES.add(new EquipmentWarningsModule());
+        theme = new ThemeModule();
+        MODULES.add(theme);
+        MODULES.add(new AutoSprintModule());
+        noJumpDelay = new NoJumpDelayModule();
+        MODULES.add(noJumpDelay);
+        lockSlot = new LockSlotModule();
+        MODULES.add(lockSlot);
+        itemScroller = new ItemScrollerModule();
+        MODULES.add(itemScroller);
         MODULES.add(new SwingModule());
         load();
         ClientTickEvents.END_CLIENT_TICK.register(ModuleManager::tick);
+        HudRenderCallback.EVENT.register((ctx, tickCounter) -> renderHud(ctx, tickCounter.getTickDelta(false)));
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
-            try {
-                if (world.isClient) targetEsp.onAttack(entity);
-            } catch (Throwable t) {
-                SwingAnimationsClient.LOGGER.warn("TargetESP: {}", t.toString());
-            }
+            if (world.isClient) com.swinganimations.event.EventBus.post(new com.swinganimations.event.AttackEvent(entity));
             return ActionResult.PASS;
         });
     }
@@ -85,25 +107,45 @@ public final class ModuleManager {
         }
     }
 
+    private static void renderHud(net.minecraft.client.gui.DrawContext ctx, float tickDelta) {
+        ThemeModule.sync();
+        for (Module m : MODULES) {
+            if (!m.isEnabled()) continue;
+            try {
+                m.renderHud(ctx, tickDelta);
+            } catch (Throwable t) {
+                SwingAnimationsClient.LOGGER.warn("{}: ошибка HUD {}", m.id, t.toString());
+            }
+        }
+    }
+
     /** Вызывается из WorldRendererMixin в конце рендера мира. */
-    public static void renderWorld(Matrix4f positionMatrix, Camera camera, float tickDelta) {
-        if (renderFailed) return;
+    public static void renderWorld(Matrix4f positionMatrix, Matrix4f projectionMatrix, Camera camera, float tickDelta) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
         boolean any = false;
         for (Module m : MODULES) if (m.isEnabled() && !"swing".equals(m.id)) { any = true; break; }
         if (!any) return;
+        com.swinganimations.render.Projection.capture(positionMatrix, projectionMatrix, camera.getPos());
         try {
             MatrixStack ms = new MatrixStack();
             ms.multiplyPositionMatrix(positionMatrix);
             ms.translate(-camera.getPos().x, -camera.getPos().y, -camera.getPos().z);
             RenderContext ctx = new RenderContext(ms, camera, tickDelta, System.currentTimeMillis(), mc);
             for (Module m : MODULES) {
-                if (m.isEnabled()) m.render(ctx);
+                if (!m.isEnabled()) continue;
+                if (RENDER_ERRORS.getOrDefault(m.id, 0) >= MAX_RENDER_ERRORS) continue;
+                try {
+                    m.render(ctx);
+                } catch (Throwable t) {
+                    // Ошибка одного модуля не должна гасить остальные: сбрасываем состояние рендера и идём дальше.
+                    com.swinganimations.render.Batch.end();
+                    int n = RENDER_ERRORS.merge(m.id, 1, Integer::sum);
+                    SwingAnimationsClient.LOGGER.error("{}: ошибка мирового рендера ({}/{})", m.id, n, MAX_RENDER_ERRORS, t);
+                }
             }
         } catch (Throwable t) {
-            renderFailed = true;
-            SwingAnimationsClient.LOGGER.error("Ошибка мирового рендера, визуалы отключены до перезапуска", t);
+            SwingAnimationsClient.LOGGER.error("Ошибка подготовки мирового рендера", t);
         }
     }
 

@@ -92,4 +92,18 @@ public abstract class Setting {
             for (int i = 0; i < modes.length; i++) if (modes[i].equals(s)) { index = i; return; }
         }
     }
+
+    /** Скрытая строковая настройка (в ClickGUI не показывается): для списков и прочих данных модуля. */
+    public static final class Str extends Setting {
+        public String value;
+
+        public Str(String id, String fallback, String def) {
+            super(id, fallback);
+            this.value = def;
+        }
+
+        @Override public String serialize() { return value; }
+
+        @Override public void deserialize(String s) { value = s == null ? "" : s; }
+    }
 }

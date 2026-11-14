@@ -76,19 +76,26 @@ public final class JumpCircleModule extends Module {
             int rgb = color.rgb(c.now, f);
             float phase = (c.now - ci.t0) / 1000f * speed.value * 3f;
 
-            Batch glow = Batch.strip();
-            Batch edge = Batch.strip();
             int segs = 64;
+
+            // Tessellator общий: два открытых буфера одновременно нельзя. Строим и рисуем по очереди.
+            Batch glow = Batch.strip();
             for (int i = 0; i <= segs; i++) {
                 double ang = Math.PI * 2.0 * i / segs;
                 float dash = 0.65f + 0.35f * (float) Math.sin(ang * 6.0 + phase);
                 double cx = Math.cos(ang), cz = Math.sin(ang);
                 glow.v(c.m, ci.x + cx * rIn, ci.y, ci.z + cz * rIn, Batch.argb(rgb, 0f));
                 glow.v(c.m, ci.x + cx * rOut, ci.y, ci.z + cz * rOut, Batch.argb(rgb, alpha * dash));
+            }
+            glow.flush();
+
+            Batch edge = Batch.strip();
+            for (int i = 0; i <= segs; i++) {
+                double ang = Math.PI * 2.0 * i / segs;
+                double cx = Math.cos(ang), cz = Math.sin(ang);
                 edge.v(c.m, ci.x + cx * rOut, ci.y, ci.z + cz * rOut, Batch.argb(rgb, alpha));
                 edge.v(c.m, ci.x + cx * (rOut + 0.045), ci.y, ci.z + cz * (rOut + 0.045), Batch.argb(rgb, alpha * 0.7f));
             }
-            glow.flush();
             edge.flush();
         }
         Batch.end();

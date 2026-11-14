@@ -7,10 +7,10 @@ import net.minecraft.text.Text;
 
 /** Палитра и примитивы в стиле тёмного ClickGUI: полупрозрачные скруглённые панели, акцент голубой. */
 public final class Ui {
-    public static final int ACCENT = 0xFF8BB9FF;
-    public static final int ACCENT_BG = 0x2D8BB9FF;
-    public static final int ACCENT_LINE = 0x918BB9FF;
-    public static final int KNOB = 0xFFAEDCFF;
+    public static int ACCENT = 0xFF8BB9FF;
+    public static int ACCENT_BG = 0x2D8BB9FF;
+    public static int ACCENT_LINE = 0x918BB9FF;
+    public static int KNOB = 0xFFAEDCFF;
     public static final int BG = 0xE60D0D0D;
     public static final int FIELD = 0xD21C1C1C;
     public static final int FIELD_HOVER = 0xD2282828;

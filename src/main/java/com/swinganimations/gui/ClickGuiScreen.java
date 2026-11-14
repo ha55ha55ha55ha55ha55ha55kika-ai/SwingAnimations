@@ -6,6 +6,8 @@ import com.swinganimations.module.Setting;
 import com.swinganimations.input.KeyBinds;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.util.Identifier;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
@@ -25,6 +27,7 @@ public class ClickGuiScreen extends Screen {
     private static final int PW = 126;
     private static final int HEADER = 20;
     private static final int GAP = 8;
+    private static final Identifier LOGO = Identifier.of("swinganimations", "textures/gui/logo.png");
 
     private enum Kind { MODULE, BOOL, NUM, MODE, BIND, BUTTON }
 
@@ -69,11 +72,23 @@ public class ClickGuiScreen extends Screen {
         super(Text.translatable("swinganimations.title"));
         this.parent = parent;
         Panel render = new Panel("swinganimations.cat.render");
+        Panel hud = new Panel("swinganimations.cat.hud");
+        Panel move = new Panel("swinganimations.cat.movement");
+        Panel player = new Panel("swinganimations.cat.player");
         Panel anim = new Panel("swinganimations.cat.animations");
         for (Module m : ModuleManager.MODULES) {
-            (m.category.equals("render") ? render : anim).modules.add(m);
+            switch (m.category) {
+                case "render" -> render.modules.add(m);
+                case "hud" -> hud.modules.add(m);
+                case "movement" -> move.modules.add(m);
+                case "player" -> player.modules.add(m);
+                default -> anim.modules.add(m);
+            }
         }
         panels.add(render);
+        panels.add(hud);
+        panels.add(move);
+        panels.add(player);
         panels.add(anim);
     }
 
@@ -134,20 +149,35 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        ctx.fill(0, 0, width, height, 0x59000000);
+        if (com.swinganimations.module.ThemeModule.blur() && client != null && client.world != null) {
+            super.renderBackground(ctx, mouseX, mouseY, delta); // ванильное размытие меню + затемнение
+        } else {
+            ctx.fill(0, 0, width, height, 0x59000000);
+        }
     }
 
     @Override
     public void render(DrawContext ctx, int mx, int my, float delta) {
+        com.swinganimations.module.ThemeModule.sync();
         renderBackground(ctx, mx, my, delta);
         for (Panel p : panels) {
             layout(p);
             renderPanel(ctx, p, mx, my);
         }
+        drawLogo(ctx);
         if (listening != null) {
             Text t = Text.translatable("swinganimations.ui.bind_hint");
             Ui.text(ctx, t, (width - Ui.tr().getWidth(t)) / 2, height - 12, Ui.ACCENT);
         }
+    }
+
+    /** Логотип в правом верхнем углу (рисуется, только если не перекрывает панели). */
+    private void drawLogo(DrawContext ctx) {
+        int w = 110, h = Math.round(w * 370f / 512f);
+        int lastRight = panels.isEmpty() ? 0 : panels.get(panels.size() - 1).x + PW;
+        int x = width - 10 - w;
+        if (x < lastRight + GAP) return;
+        ctx.drawTexture(RenderLayer::getGuiTextured, LOGO, x, 10, 0f, 0f, w, h, 512, 370, 512, 370);
     }
 
     private void renderPanel(DrawContext ctx, Panel p, int mx, int my) {

@@ -23,6 +23,6 @@ public abstract class WorldRendererMixin {
     private void swa$renderWorld(ObjectAllocator allocator, RenderTickCounter tickCounter, boolean renderBlockOutline,
                                  Camera camera, GameRenderer gameRenderer, Matrix4f positionMatrix,
                                  Matrix4f projectionMatrix, CallbackInfo ci) {
-        ModuleManager.renderWorld(positionMatrix, camera, tickCounter.getTickDelta(false));
+        ModuleManager.renderWorld(positionMatrix, projectionMatrix, camera, tickCounter.getTickDelta(false));
     }
 }

@@ -3,15 +3,23 @@
   "id": "swinganimations",
   "version": "${version}",
   "name": "SwingAnimations",
-  "description": "Визуальные анимации удара и положения предмета от первого лица. Только клиент, геймплей не затрагивается.",
-  "authors": ["You"],
+  "description": "Визуальный клиентский мод: ClickGUI, TargetESP, Trails, JumpCircle, HeartShow, SeeInvisibles, Interface, AutoSprint и анимации удара. Только клиент.",
+  "authors": [
+    "You"
+  ],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
-    "client": ["com.swinganimations.SwingAnimationsClient"],
-    "modmenu": ["com.swinganimations.compat.ModMenuIntegration"]
+    "client": [
+      "com.swinganimations.SwingAnimationsClient"
+    ],
+    "modmenu": [
+      "com.swinganimations.compat.ModMenuIntegration"
+    ]
   },
-  "mixins": ["swinganimations.mixins.json"],
+  "mixins": [
+    "swinganimations.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=0.16.0",
     "minecraft": "~1.21.4",
@@ -20,5 +28,6 @@
   },
   "suggests": {
     "modmenu": "*"
-  }
+  },
+  "icon": "assets/swinganimations/icon.png"
 }

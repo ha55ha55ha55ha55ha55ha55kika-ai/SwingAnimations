@@ -1,6 +1,7 @@
 package com.swinganimations.module;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +33,9 @@ public abstract class Module {
     public void setEnabled(boolean v) {
         if (isEnabled() == v) return;
         enabled = v;
+        if (v) ModuleManager.clearRenderErrors(id);
         if (v) onEnable(); else onDisable();
+        com.swinganimations.event.EventBus.post(new com.swinganimations.event.ModuleToggleEvent(this, v));
     }
 
     public void toggle() { setEnabled(!isEnabled()); }
@@ -47,4 +50,7 @@ public abstract class Module {
     public void tick(MinecraftClient mc) { }
 
     public void render(RenderContext c) { }
+
+    /** Отрисовка поверх HUD (экранные координаты). Вызывается только для включённых модулей. */
+    public void renderHud(DrawContext ctx, float tickDelta) { }
 }

@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat.DrawMode;
 import net.minecraft.client.render.VertexFormats;
@@ -30,7 +31,9 @@ public final class Batch {
     }
 
     public void flush() {
-        if (n >= 3) BufferRenderer.drawWithGlobalProgram(b.end());
+        BuiltBuffer built = b.endNullable();
+        if (built == null) return;
+        if (n >= 3) BufferRenderer.drawWithGlobalProgram(built); else built.close();
     }
 
     // ---- состояние рендера ----

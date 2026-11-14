@@ -26,6 +26,7 @@ public final class TargetEspModule extends Module {
 
     public TargetEspModule() {
         super("target_esp", "TargetESP", "render");
+        com.swinganimations.event.EventBus.on(com.swinganimations.event.AttackEvent.class, e -> onAttack(e.target()));
     }
 
     @Override

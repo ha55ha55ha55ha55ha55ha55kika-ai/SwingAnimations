@@ -25,6 +25,6 @@ public final class ColorSettings {
             return MathHelper.hsvToRgb(hue, 0.65f, 1f);
         }
         if (mode.is("Custom")) return ((int) r.value << 16) | ((int) g.value << 8) | (int) b.value;
-        return 0x8BB9FF;
+        return com.swinganimations.gui.Ui.ACCENT & 0xFFFFFF;
     }
 }

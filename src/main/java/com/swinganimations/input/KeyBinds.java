@@ -16,6 +16,7 @@ public final class KeyBinds {
     public static KeyBinding OPEN;
     public static KeyBinding TOGGLE;
     public static KeyBinding NEXT_PRESET;
+    public static KeyBinding LOCK;
 
     private KeyBinds() {}
 
@@ -23,6 +24,7 @@ public final class KeyBinds {
         OPEN = reg("open", GLFW.GLFW_KEY_RIGHT_SHIFT);
         TOGGLE = reg("toggle", GLFW.GLFW_KEY_UNKNOWN);       // по умолчанию не назначена, чтобы не конфликтовать
         NEXT_PRESET = reg("next_preset", GLFW.GLFW_KEY_UNKNOWN);
+        LOCK = reg("lock_slot", GLFW.GLFW_KEY_L);
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
     }
 

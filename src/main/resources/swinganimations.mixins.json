@@ -6,7 +6,11 @@
   "client": [
     "HeldItemRendererMixin",
     "LivingEntityMixin",
-    "WorldRendererMixin"
+    "WorldRendererMixin",
+    "LivingEntityRendererMixin",
+    "LivingEntityRenderStateMixin",
+    "HandledScreenMixin",
+    "ClientPlayerEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1
