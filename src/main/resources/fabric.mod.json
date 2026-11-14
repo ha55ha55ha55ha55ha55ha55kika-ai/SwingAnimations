@@ -3,7 +3,7 @@
   "id": "swinganimations",
   "version": "${version}",
   "name": "SwingAnimations",
-  "description": "Визуальный клиентский мод: ClickGUI, TargetESP, Trails, JumpCircle, HeartShow, SeeInvisibles, Interface, AutoSprint и анимации удара. Только клиент.",
+  "description": "Визуальный клиентский мод: ClickGUI, FreeLook, PainDication, BlockOutline, Removals, TargetESP, Trails, JumpCircle, HeartShow, SeeInvisibles, Interface, AutoSprint и анимации удара. Только клиент.",
   "authors": [
     "You"
   ],

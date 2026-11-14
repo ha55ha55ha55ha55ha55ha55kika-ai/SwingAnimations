@@ -10,11 +10,11 @@ import net.minecraft.util.math.MathHelper;
 import org.joml.Matrix4f;
 
 /**
- * Маркер на цели: Кольцо, Ромб или Призраки. Цель = существо, которое вы ударили, и/или на которое наведён
+ * Маркер на цели: Кольцо, Ромб, Призраки, Crystal (3D-ромб над головой), Orbit, Helix, Halo, Pulse. Цель = существо, которое вы ударили, и/или на которое наведён
  * прицел. Рисуется С проверкой глубины: сквозь стены не видно, это чисто косметика.
  */
 public final class TargetEspModule extends Module {
-    private final Setting.Mode mode = add(new Setting.Mode("mode", "Mode", "Ring", "Diamond", "Ghosts"));
+    private final Setting.Mode mode = add(new Setting.Mode("mode", "Mode", "Ring", "Diamond", "Ghosts", "Crystal", "Orbit", "Helix", "Halo", "Pulse"));
     private final Setting.Num size = add(new Setting.Num("size", "Size", 1f, 0.5f, 1.5f, 0.05f));
     private final Setting.Num speed = add(new Setting.Num("speed", "Speed", 1f, 0.3f, 3f, 0.1f));
     private final Setting.Num hold = add(new Setting.Num("hold", "Hold time (ms)", 1500f, 300f, 5000f, 100f));
@@ -90,6 +90,11 @@ public final class TargetEspModule extends Module {
         switch (mode.get()) {
             case "Diamond" -> diamond(c, x, y + h * 0.5, z, rgb, a, hurtF);
             case "Ghosts" -> ghosts(c, x, y, z, w, h, rgb, a);
+            case "Crystal" -> crystal(c, x, y, z, h, rgb, a);
+            case "Orbit" -> orbit(c, x, y, z, w, h, rgb, a);
+            case "Helix" -> helix(c, x, y, z, w, h, rgb, a);
+            case "Halo" -> halo(c, x, y, z, h, rgb, a);
+            case "Pulse" -> pulse(c, x, y, z, w, rgb, a);
             default -> ring(c, x, y, z, w, h, rgb, a);
         }
     }
@@ -160,6 +165,148 @@ public final class TargetEspModule extends Module {
         float rx = lx * ca - ly * sa;
         float ry = lx * sa + ly * ca;
         t.v(c.m, x + c.rx * rx + c.ux * ry, y + c.ry * rx + c.uy * ry, z + c.rz * rx + c.uz * ry, col);
+    }
+
+    // ---------------- Crystal: классический 3D-ромб над головой ----------------
+
+    private void crystal(RenderContext c, double x, double y, double z, float h, int rgb, float a) {
+        double phase = c.now / 1000.0 * speed.value;
+        float sz = size.value;
+        double cy = y + h + 0.42 * sz + 0.07 * Math.sin(phase * 2.0);
+        float hh = 0.30f * sz;
+        float rr = 0.19f * sz;
+        double th = phase * 2.4;
+        Batch.begin(true, false);
+        Batch t = Batch.triangles();
+        for (int i = 0; i < 4; i++) {
+            double a0 = th + i * Math.PI / 2.0;
+            double a1 = th + (i + 1) * Math.PI / 2.0;
+            double x0 = x + Math.cos(a0) * rr, z0 = z + Math.sin(a0) * rr;
+            double x1 = x + Math.cos(a1) * rr, z1 = z + Math.sin(a1) * rr;
+            // Грани по очереди ловят «свет»: вращение выглядит объёмным.
+            float light = (float) (0.5 + 0.5 * Math.cos(a0 + Math.PI / 4.0 - 0.8));
+            int face = Batch.mix(rgb, 0x000000, 0.5f * (1f - light));
+            int tip = Batch.mix(face, 0xFFFFFF, 0.3f);
+            int low = Batch.mix(face, 0x000000, 0.35f);
+            int col = Batch.argb(face, a * 0.92f);
+            t.v(c.m, x, cy + hh, z, Batch.argb(tip, a * 0.92f));
+            t.v(c.m, x0, cy, z0, col);
+            t.v(c.m, x1, cy, z1, col);
+            int lowCol = Batch.argb(low, a * 0.92f);
+            t.v(c.m, x, cy - hh, z, lowCol);
+            t.v(c.m, x1, cy, z1, lowCol);
+            t.v(c.m, x0, cy, z0, lowCol);
+        }
+        t.flush();
+        Batch.end();
+
+        Batch.begin(true, true);
+        Batch g = Batch.triangles();
+        disc(g, c, x, cy, z, 0.5f * sz, Perf.quality() == 0 ? 16 : 10, Batch.argb(rgb, a * 0.35f), Batch.argb(rgb, 0f));
+        g.flush();
+        Batch.end();
+    }
+
+    // ---------------- Orbit: ромбики по орбите ----------------
+
+    private void orbit(RenderContext c, double x, double y, double z, float w, float h, int rgb, float a) {
+        double phase = c.now / 1000.0 * speed.value;
+        float orbitR = (w * 0.5f + 0.45f) * size.value;
+        int trail = Perf.quality() == 0 ? 5 : 3;
+        Batch.begin(true, true);
+        Batch t = Batch.triangles();
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < trail; j++) {
+                double th = phase * 2.0 + i * Math.PI / 2.0 - j * 0.12;
+                double yy = y + h * (0.5 + 0.38 * Math.sin(phase * 1.3 + i * 1.7));
+                float k = 1f - j / (float) trail;
+                rhombus(t, c, x + Math.cos(th) * orbitR, yy, z + Math.sin(th) * orbitR,
+                        0.13f * size.value * (0.5f + 0.5f * k), 0f,
+                        Batch.argb(rgb, a * 0.95f * k), Batch.argb(rgb, a * 0.4f * k));
+            }
+        }
+        t.flush();
+        Batch.end();
+    }
+
+    // ---------------- Helix: двойная спираль вдоль тела ----------------
+
+    private void helix(RenderContext c, double x, double y, double z, float w, float h, int rgb, float a) {
+        double phase = c.now / 1000.0 * speed.value;
+        float rad = (w * 0.5f + 0.3f) * size.value;
+        int n = Perf.quality() == 0 ? 16 : 9;
+        int segs = Perf.quality() == 0 ? 10 : 6;
+        Batch.begin(true, true);
+        Batch t = Batch.triangles();
+        for (int strand = 0; strand < 2; strand++) {
+            for (int j = 0; j < n; j++) {
+                double u = (j / (double) n + phase * 0.28) % 1.0;
+                double th = u * Math.PI * 4.0 + strand * Math.PI + phase * 1.6;
+                float fade = (float) Math.sin(Math.PI * u);
+                disc(t, c, x + Math.cos(th) * rad, y + h * u, z + Math.sin(th) * rad,
+                        0.07f * size.value * (0.6f + 0.4f * fade), segs,
+                        Batch.argb(rgb, a * 0.95f * fade), Batch.argb(rgb, 0f));
+            }
+        }
+        t.flush();
+        Batch.end();
+    }
+
+    // ---------------- Halo: светящийся нимб над головой ----------------
+
+    private void halo(RenderContext c, double x, double y, double z, float h, int rgb, float a) {
+        double phase = c.now / 1000.0 * speed.value;
+        float sz = size.value;
+        float r = 0.30f * sz;
+        double yy = y + h + 0.26 + 0.05 * Math.sin(phase * 2.0);
+        int segs = Perf.quality() == 0 ? 40 : 24;
+        double[] cs = Trig.cos(segs);
+        double[] sn = Trig.sin(segs);
+        float core0 = r - 0.035f * sz;
+        float core1 = r + 0.035f * sz;
+        float glow = 0.07f * sz;
+        // полосы: {внутренний радиус, альфа, внешний радиус, альфа}
+        float[][] bands = {
+                {core0 - glow, 0f, core0, 1f},
+                {core0, 1f, core1, 1f},
+                {core1, 1f, core1 + glow, 0f}
+        };
+        Batch.begin(true, true);
+        Batch s = Batch.strip();
+        for (float[] bd : bands) {
+            s.restart();
+            for (int i = 0; i <= segs; i++) {
+                double tilt = 0.04 * Math.sin(phase * 2.0 + i * Math.PI * 2.0 / segs);
+                s.v(c.m, x + cs[i] * bd[0], yy + tilt, z + sn[i] * bd[0], Batch.argb(rgb, a * 0.95f * bd[1]));
+                s.v(c.m, x + cs[i] * bd[2], yy + tilt, z + sn[i] * bd[2], Batch.argb(rgb, a * 0.95f * bd[3]));
+            }
+        }
+        s.flush();
+        Batch.end();
+    }
+
+    // ---------------- Pulse: волны от ног ----------------
+
+    private void pulse(RenderContext c, double x, double y, double z, float w, int rgb, float a) {
+        double phase = c.now / 1000.0 * speed.value * 0.6;
+        int segs = Perf.quality() == 0 ? 48 : 24;
+        double[] cs = Trig.cos(segs);
+        double[] sn = Trig.sin(segs);
+        Batch.begin(true, true);
+        Batch s = Batch.strip();
+        for (int k = 0; k < 3; k++) {
+            float f = (float) ((phase + k / 3.0) % 1.0);
+            float rOut = (w * 0.5f + 0.15f + f * 1.3f) * size.value;
+            float rIn = rOut - 0.16f * (1f - 0.5f * f) * size.value;
+            float al = a * (float) Math.pow(1f - f, 1.4);
+            s.restart();
+            for (int i = 0; i <= segs; i++) {
+                s.v(c.m, x + cs[i] * rIn, y + 0.03, z + sn[i] * rIn, Batch.argb(rgb, 0f));
+                s.v(c.m, x + cs[i] * rOut, y + 0.03, z + sn[i] * rOut, Batch.argb(rgb, al));
+            }
+        }
+        s.flush();
+        Batch.end();
     }
 
     // ---------------- Призраки ----------------

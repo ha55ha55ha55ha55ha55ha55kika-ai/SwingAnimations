@@ -17,6 +17,8 @@ public final class KeyBinds {
     public static KeyBinding TOGGLE;
     public static KeyBinding NEXT_PRESET;
     public static KeyBinding LOCK;
+    public static KeyBinding CROSSHAIR_STYLE;
+    public static KeyBinding CROSSHAIR_COLOR;
 
     private KeyBinds() {}
 
@@ -25,6 +27,8 @@ public final class KeyBinds {
         TOGGLE = reg("toggle", GLFW.GLFW_KEY_UNKNOWN);       // по умолчанию не назначена, чтобы не конфликтовать
         NEXT_PRESET = reg("next_preset", GLFW.GLFW_KEY_UNKNOWN);
         LOCK = reg("lock_slot", GLFW.GLFW_KEY_L);
+        CROSSHAIR_STYLE = reg("crosshair_style", GLFW.GLFW_KEY_UNKNOWN); // назначается игроком в «Управлении»
+        CROSSHAIR_COLOR = reg("crosshair_color", GLFW.GLFW_KEY_UNKNOWN);
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
     }
 
@@ -37,6 +41,7 @@ public final class KeyBinds {
         while (OPEN.wasPressed()) {
             if (mc.currentScreen == null) mc.setScreen(new com.swinganimations.gui.ClickGuiScreen(null));
         }
+        crosshairKeys(mc);
         SwingConfig cfg = ConfigManager.get();
         while (TOGGLE.wasPressed()) {
             cfg.enabled = !cfg.enabled;
@@ -48,6 +53,21 @@ public final class KeyBinds {
             Presets.next(cfg);
             ConfigManager.save();
             message(mc, Text.translatable("swinganimations.msg.preset", cfg.activePreset));
+        }
+    }
+
+    private static void crosshairKeys(MinecraftClient mc) {
+        com.swinganimations.module.CrosshairModule c = com.swinganimations.module.ModuleManager.crosshair;
+        while (CROSSHAIR_STYLE.wasPressed()) {
+            if (c == null) continue;
+            if (!c.isEnabled()) c.setEnabled(true);
+            int s = c.nextStyle();
+            message(mc, Text.literal("Crosshair: " + s + "/" + com.swinganimations.module.CrosshairModule.STYLES));
+        }
+        while (CROSSHAIR_COLOR.wasPressed()) {
+            if (c == null) continue;
+            if (!c.isEnabled()) c.setEnabled(true);
+            message(mc, Text.literal("Crosshair color: " + c.nextColor()));
         }
     }
 

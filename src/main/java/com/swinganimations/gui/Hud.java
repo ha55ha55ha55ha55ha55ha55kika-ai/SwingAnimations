@@ -5,6 +5,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 
@@ -80,6 +81,18 @@ public final class Hud {
     public static void panel(DrawContext c, int x, int y, int w, int h) {
         Ui.rect(c, x, y, w, h, 5, bg());
         Ui.outline(c, x, y, w, h, 5, Ui.OUTLINE);
+    }
+
+    /** Стеклянная «таблетка» (полностью скруглённая плашка) для компактных HUD-элементов. */
+    public static void chip(DrawContext c, int x, int y, int w, int h) {
+        int r = h / 2;
+        Ui.rect(c, x, y, w, h, r, ThemeModule.matte() ? Ui.BG : 0x82181A2C);
+        Ui.outline(c, x, y, w, h, r, 0x36FFFFFF);
+    }
+
+    /** Квадратная иконка 48x48, нарисованная в size x size (текстура с мягким сглаживанием). */
+    public static void icon(DrawContext c, Identifier id, int x, int y, int size) {
+        c.drawTexture(RenderLayer::getGuiTextured, id, x, y, 0f, 0f, size, size, 48, 48, 48, 48);
     }
 
     /** Простая полоса: тёмная подложка + заливка frac (0..1). */

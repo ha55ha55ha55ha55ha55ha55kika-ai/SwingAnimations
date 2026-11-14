@@ -13,7 +13,20 @@
     "ClientPlayerEntityMixin",
     "EntityRenderDispatcherMixin",
     "ItemEntityRendererMixin",
-    "ItemEntityRenderStateMixin"
+    "ItemEntityRenderStateMixin",
+    "InGameHudMixin",
+    "WorldMixin",
+    "ClientWorldMixin",
+    "SimpleOptionMixin",
+    "EntityLookMixin",
+    "CameraMixin",
+    "InGameOverlayRendererMixin",
+    "ParticleManagerMixin",
+    "GameRendererMixin",
+    "HeldItemRendererBobMixin",
+    "MinecraftClientMixin",
+    "HeartTypeMixin",
+    "WorldRendererSkyMixin"
   ],
   "injectors": {
     "defaultRequire": 1

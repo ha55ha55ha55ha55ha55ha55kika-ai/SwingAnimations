@@ -19,17 +19,33 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Минималистичный HUD: ватермарка с логотипом, список биндов, эффекты и координаты.
- * Перенесён только внешний вид (тёмные скруглённые панели), без функций из чит-клиента.
+ * HUD в виде стеклянных «таблеток» с иконками: верхний ряд (ватермарка, ник, FPS, BPS, время),
+ * координаты, список биндов и эффекты. Каждая группа двигается мышью при открытом чате.
  */
 public final class InterfaceModule extends Module {
     private static final Identifier LOGO = Identifier.of("swinganimations", "textures/gui/logo_small.png");
+    private static final Identifier I_USER = icon("user");
+    private static final Identifier I_PULSE = icon("pulse");
+    private static final Identifier I_SPEED = icon("speed");
+    private static final Identifier I_CLOCK = icon("clock");
+    private static final Identifier I_PIN = icon("pin");
+    private static final Identifier I_KEYS = icon("keys");
+    private static final Identifier I_FLASK = icon("flask");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
 
+    private static final int H = 16;      // высота таблетки
+    private static final int GAP = 4;     // зазор между таблетками
+    private static final int PAD = 6;
+    private static final int ICON = 10;
+
     private final Setting.Bool watermark = add(new Setting.Bool("watermark", "Watermark", true));
+    private final Setting.Bool name = add(new Setting.Bool("name", "Player name", true));
+    private final Setting.Bool fps = add(new Setting.Bool("fps", "FPS", true));
+    private final Setting.Bool bps = add(new Setting.Bool("bps", "Speed (BPS)", true));
+    private final Setting.Bool time = add(new Setting.Bool("time", "Clock", true));
+    private final Setting.Bool coords = add(new Setting.Bool("coords", "Coordinates", true));
     private final Setting.Bool keybinds = add(new Setting.Bool("keybinds", "Keybinds", true));
     private final Setting.Bool effects = add(new Setting.Bool("effects", "Effects", true));
-    private final Setting.Bool coords = add(new Setting.Bool("coords", "Coordinates", true));
 
     private final HudLayout.Win winWatermark = HudLayout.win("watermark");
     private final HudLayout.Win winKeybinds = HudLayout.win("keybinds");
@@ -44,11 +60,15 @@ public final class InterfaceModule extends Module {
     private static final List<Text> S_EF_R = List.of(Text.literal("1:30"), Text.literal("0:45"));
     private static final List<Integer> S_EF_C = List.of(Ui.TEXT, Ui.TEXT);
 
-    // Кэш: строки и списки пересобираются только когда меняются, а не каждый кадр.
+    // Кэш: строки пересобираются только когда значение меняется, а не каждый кадр.
     private String timeStr = "";
     private long timeAt;
     private String fpsStr = "";
     private int fpsShown = -1;
+    private String bpsStr = "0.0 BPS";
+    private int bpsTenths = -1;
+    private double bpsValue;
+    private double lastPx = Double.NaN, lastPz;
     private String coordStr = "";
     private long cx = Long.MIN_VALUE, cy, cz;
     private final List<Text> kbLeft = new ArrayList<>();
@@ -63,16 +83,22 @@ public final class InterfaceModule extends Module {
         super("interface", "Interface", "hud");
     }
 
+    private static Identifier icon(String n) {
+        return Identifier.of("swinganimations", "textures/gui/icon_" + n + ".png");
+    }
+
     @Override
     public void onDisable() {
         listTimer = 100;
+        lastPx = Double.NaN;
     }
 
     @Override
     public void tick(MinecraftClient mc) {
+        ClientPlayerEntity p = mc.player;
+        if (p != null) updateSpeed(p);
         if (++listTimer < 5) return;
         listTimer = 0;
-        ClientPlayerEntity p = mc.player;
         kbLeft.clear();
         kbRight.clear();
         kbColors.clear();
@@ -87,12 +113,28 @@ public final class InterfaceModule extends Module {
         efColors.clear();
         if (p != null) {
             for (StatusEffectInstance e : p.getStatusEffects()) {
-                Text name = e.getEffectType().value().getName();
-                Text n = e.getAmplifier() > 0 ? Text.empty().append(name).append(" " + (e.getAmplifier() + 1)) : name;
+                Text nm = e.getEffectType().value().getName();
+                Text n = e.getAmplifier() > 0 ? Text.empty().append(nm).append(" " + (e.getAmplifier() + 1)) : nm;
                 efLeft.add(n);
                 efRight.add(Text.literal(duration(e)));
                 efColors.add(e.getEffectType().value().isBeneficial() ? Ui.TEXT : 0xFFFF8A8A);
             }
+        }
+    }
+
+    /** Горизонтальная скорость в блоках в секунду: сдвиг за тик × 20, со сглаживанием. */
+    private void updateSpeed(ClientPlayerEntity p) {
+        double x = p.getX(), z = p.getZ();
+        if (!Double.isNaN(lastPx)) {
+            double d = Math.hypot(x - lastPx, z - lastPz);
+            if (d < 10.0) bpsValue += (d * 20.0 - bpsValue) * 0.25; // телепорты не считаем
+        }
+        lastPx = x;
+        lastPz = z;
+        int tenths = (int) Math.round(bpsValue * 10.0);
+        if (tenths != bpsTenths) {
+            bpsTenths = tenths;
+            bpsStr = String.format(Locale.ROOT, "%.1f BPS", tenths / 10.0);
         }
     }
 
@@ -101,103 +143,120 @@ public final class InterfaceModule extends Module {
         MinecraftClient mc = MinecraftClient.getInstance();
         ClientPlayerEntity p = mc.player;
         if (p == null || mc.world == null || mc.options.hudHidden) return;
-        int bg = Hud.bg();
         int x = 8;
         int y = 8;
-        if (watermark.value) y = watermark(ctx, mc, x, y, bg) + 4;
-        if (keybinds.value) y = keybindsPanel(ctx, x, y, bg);
-        if (effects.value) y = effectsPanel(ctx, p, x, y, bg);
-        if (coords.value) coordsPanel(ctx, p, x, y, bg);
+        if (watermark.value || name.value || fps.value || bps.value || time.value) y = topRow(ctx, mc, x, y);
+        if (coords.value) y = coordsChip(ctx, p, x, y);
+        if (keybinds.value) y = keybindsBlock(ctx, x, y);
+        if (effects.value) effectsBlock(ctx, x, y);
     }
 
-    private static void box(DrawContext ctx, int x, int y, int w, int h, int bg) {
-        Hud.panel(ctx, x, y, w, h);
+    // ---------------- таблетки ----------------
+
+    /** Рисует таблетку «иконка + текст» и возвращает её ширину. icon == null: логотип мода. */
+    private int chip(DrawContext ctx, int x, int y, Identifier icon, String text, int color) {
+        boolean logo = icon == null;
+        int iw = logo ? 17 : ICON;
+        int w = PAD + iw + 4 + Hud.w(text) + 7;
+        Hud.chip(ctx, x, y, w, H);
+        if (logo) {
+            ctx.drawTexture(RenderLayer::getGuiTextured, LOGO, x + PAD, y + (H - 12) / 2, 0f, 0f, 17, 12, 128, 92, 128, 92);
+        } else {
+            Hud.icon(ctx, icon, x + PAD, y + (H - ICON) / 2, ICON);
+        }
+        Hud.text(ctx, text, x + PAD + iw + 4, y + (H - 8) / 2, color);
+        return w;
     }
 
-    private int watermark(DrawContext ctx, MinecraftClient mc, int x, int y, int bg) {
-        String name = mc.getSession().getUsername();
+    private int topRow(DrawContext ctx, MinecraftClient mc, int x, int y) {
         int fpsNow = mc.getCurrentFps();
         if (fpsNow != fpsShown) {
             fpsShown = fpsNow;
-            fpsStr = fpsNow + " fps";
+            fpsStr = fpsNow + " FPS";
         }
         long sec = System.currentTimeMillis() / 1000L;
         if (sec != timeAt) {
             timeAt = sec;
             timeStr = LocalTime.now().format(TIME);
         }
-        String fps = fpsStr;
-        String time = timeStr;
-        int pad = 6, lw = 17, lh = 12, gap = 8, h = 18;
-        int w = pad + lw + 5 + Hud.w(name) + gap + Hud.w(fps) + gap + Hud.w(time) + pad;
         HudLayout.push(ctx, winWatermark);
-        box(ctx, x, y, w, h, bg);
-        ctx.drawTexture(RenderLayer::getGuiTextured, LOGO, x + pad, y + (h - lh) / 2, 0f, 0f, lw, lh, 128, 92, 128, 92);
-        int tx = x + pad + lw + 5;
-        int ty = y + (h - 8) / 2;
-        Hud.text(ctx, name, tx, ty, Ui.TEXT);
-        tx += Hud.w(name) + gap;
-        Hud.text(ctx, Text.literal(fps), tx, ty, Ui.TEXT_DIM);
-        tx += Hud.w(fps) + gap;
-        Hud.text(ctx, Text.literal(time), tx, ty, Ui.TEXT);
-        HudLayout.pop(ctx, winWatermark, x, y, w, h);
-        return y + h;
+        int cx0 = x;
+        if (watermark.value) cx0 += chip(ctx, cx0, y, null, "SwingAnimations", Ui.TEXT) + GAP;
+        if (name.value) cx0 += chip(ctx, cx0, y, I_USER, mc.getSession().getUsername(), Ui.TEXT) + GAP;
+        if (fps.value) cx0 += chip(ctx, cx0, y, I_PULSE, fpsStr, Ui.TEXT) + GAP;
+        if (bps.value) cx0 += chip(ctx, cx0, y, I_SPEED, bpsStr, Ui.TEXT) + GAP;
+        if (time.value) cx0 += chip(ctx, cx0, y, I_CLOCK, timeStr, Ui.TEXT) + GAP;
+        HudLayout.pop(ctx, winWatermark, x, y, Math.max(1, cx0 - GAP - x), H);
+        return y + H + GAP;
     }
 
-    private int keybindsPanel(DrawContext ctx, int x, int y, int bg) {
-        Text title = Text.translatableWithFallback("swinganimations.hud.keybinds", "Keybinds");
-        if (kbLeft.isEmpty()) {
-            if (!HudLayout.editing()) return y;
-            return list(ctx, x, y, title, S_KB_L, S_KB_R, S_KB_C, bg, winKeybinds);
-        }
-        return list(ctx, x, y, title, kbLeft, kbRight, kbColors, bg, winKeybinds);
-    }
-
-    private int effectsPanel(DrawContext ctx, ClientPlayerEntity p, int x, int y, int bg) {
-        Text title = Text.translatableWithFallback("swinganimations.hud.effects", "Effects");
-        if (efLeft.isEmpty()) {
-            if (!HudLayout.editing()) return y;
-            return list(ctx, x, y, title, S_EF_L, S_EF_R, S_EF_C, bg, winEffects);
-        }
-        return list(ctx, x, y, title, efLeft, efRight, efColors, bg, winEffects);
-    }
-
-    private int coordsPanel(DrawContext ctx, ClientPlayerEntity p, int x, int y, int bg) {
+    private int coordsChip(DrawContext ctx, ClientPlayerEntity p, int x, int y) {
         long nx = Math.round(p.getX()), ny = Math.round(p.getY()), nz = Math.round(p.getZ());
         if (nx != cx || ny != cy || nz != cz) {
             cx = nx;
             cy = ny;
             cz = nz;
-            coordStr = String.format(Locale.ROOT, "XYZ  %.0f  %.0f  %.0f", p.getX(), p.getY(), p.getZ());
+            coordStr = nx + " / " + ny + " / " + nz;
         }
-        String s = coordStr;
-        int w = Hud.w(s) + 12;
         HudLayout.push(ctx, winCoords);
-        box(ctx, x, y, w, 16, bg);
-        Hud.text(ctx, s, x + 6, y + 4, Ui.TEXT);
-        HudLayout.pop(ctx, winCoords, x, y, w, 16);
-        return y + 20;
+        int w = chip(ctx, x, y, I_PIN, coordStr, Ui.TEXT);
+        HudLayout.pop(ctx, winCoords, x, y, w, H);
+        return y + H + GAP;
     }
 
-    /** Панель «заголовок + строки слева/справа». Возвращает y следующей панели. */
-    private int list(DrawContext ctx, int x, int y, Text title, List<Text> left, List<Text> right, List<Integer> colors, int bg, HudLayout.Win win) {
-        int w = Hud.w(title) + 12;
-        for (int i = 0; i < left.size(); i++) {
-            w = Math.max(w, Hud.w(left.get(i)) + 14 + Hud.w(right.get(i)) + 12);
+    // ---------------- списки ----------------
+
+    private int keybindsBlock(DrawContext ctx, int x, int y) {
+        Text title = Text.translatableWithFallback("swinganimations.hud.keybinds", "Keybinds");
+        if (kbLeft.isEmpty()) {
+            if (!HudLayout.editing()) return y;
+            return block(ctx, x, y, I_KEYS, title, S_KB_L, S_KB_R, S_KB_C, false, winKeybinds);
         }
-        w = Math.max(w, 84);
-        int h = 18 + left.size() * 11 + 3;
+        return block(ctx, x, y, I_KEYS, title, kbLeft, kbRight, kbColors, false, winKeybinds);
+    }
+
+    private int effectsBlock(DrawContext ctx, int x, int y) {
+        Text title = Text.translatableWithFallback("swinganimations.hud.effects", "Effects");
+        if (efLeft.isEmpty()) {
+            if (!HudLayout.editing()) return y;
+            return block(ctx, x, y, I_FLASK, title, S_EF_L, S_EF_R, S_EF_C, true, winEffects);
+        }
+        return block(ctx, x, y, I_FLASK, title, efLeft, efRight, efColors, true, winEffects);
+    }
+
+    /**
+     * Заголовок-таблетка и под ним по таблетке на строку, все одной ширины.
+     * rightAlign: правый текст прижат к краю (эффекты), иначе стоит сразу за названием (бинды).
+     */
+    private int block(DrawContext ctx, int x, int y, Identifier icon, Text title, List<Text> left, List<Text> right,
+                      List<Integer> colors, boolean rightAlign, HudLayout.Win win) {
+        int w = PAD + ICON + 4 + Hud.w(title) + 7;
+        for (int i = 0; i < left.size(); i++) {
+            w = Math.max(w, PAD + ICON + 4 + Hud.w(left.get(i)) + 8 + Hud.w(right.get(i)) + 7);
+        }
+        w = Math.max(w, 92);
+        int rows = left.size();
+        int total = (rows + 1) * (H + GAP) - GAP;
+
         HudLayout.push(ctx, win);
-        box(ctx, x, y, w, h, bg);
-        Hud.text(ctx, title, x + 6, y + 5, Ui.ACCENT);
-        ctx.fill(x + 5, y + 15, x + w - 5, y + 16, Ui.SEP);
-        for (int i = 0; i < left.size(); i++) {
-            int ry = y + 19 + i * 11;
-            Hud.text(ctx, left.get(i), x + 6, ry, colors.get(i));
-            Hud.textRight(ctx, right.get(i), x + w - 6, ry, Ui.TEXT_DIM);
+        Hud.chip(ctx, x, y, w, H);
+        Hud.icon(ctx, icon, x + PAD, y + (H - ICON) / 2, ICON);
+        Hud.text(ctx, title, x + PAD + ICON + 4, y + (H - 8) / 2, Ui.TEXT);
+        for (int i = 0; i < rows; i++) {
+            int ry = y + (i + 1) * (H + GAP);
+            Hud.chip(ctx, x, ry, w, H);
+            Hud.icon(ctx, icon, x + PAD, ry + (H - ICON) / 2, ICON);
+            int tx = x + PAD + ICON + 4;
+            int ty = ry + (H - 8) / 2;
+            Hud.text(ctx, left.get(i), tx, ty, colors.get(i));
+            if (rightAlign) {
+                Hud.textRight(ctx, right.get(i), x + w - 7, ty, Ui.TEXT_DIM);
+            } else {
+                Hud.text(ctx, right.get(i), tx + Hud.w(left.get(i)) + 8, ty, Ui.TEXT_DIM);
+            }
         }
-        HudLayout.pop(ctx, win, x, y, w, h);
-        return y + h + 4;
+        HudLayout.pop(ctx, win, x, y, w, total);
+        return y + total + GAP;
     }
 
     private static Text keyText(Module m) {

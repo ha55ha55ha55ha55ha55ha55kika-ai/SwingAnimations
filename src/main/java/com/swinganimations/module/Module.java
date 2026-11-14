@@ -43,6 +43,12 @@ public abstract class Module {
     /** Показывать в панели кнопку «Настройки анимаций…» (только для SwingAnimations). */
     public boolean hasExtraButton() { return false; }
 
+    /** true: модуль активен только пока зажат бинд (включается при нажатии, выключается при отпускании). */
+    public boolean holdBind() { return false; }
+
+    /** false: сохранённое «включено» не восстанавливается при запуске игры (например FreeLook). */
+    public boolean restoreOnLoad() { return true; }
+
     public void onEnable() { }
 
     public void onDisable() { }

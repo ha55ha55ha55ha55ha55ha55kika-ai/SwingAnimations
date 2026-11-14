@@ -40,6 +40,11 @@ public final class ModuleManager {
     public static NoJumpDelayModule noJumpDelay;
     public static PerformanceModule performance;
     public static ItemPhysicsModule itemPhysics;
+    public static CrosshairModule crosshair;
+    public static CustomWorldModule customWorld;
+    public static FreeLookModule freeLook;
+    public static BlockOutlineModule blockOutline;
+    public static RemovalsModule removals;
     private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
     private static final int MAX_RENDER_ERRORS = 5;
 
@@ -64,6 +69,16 @@ public final class ModuleManager {
         MODULES.add(new JumpCircleModule());
         itemPhysics = new ItemPhysicsModule();
         MODULES.add(itemPhysics);
+        crosshair = new CrosshairModule();
+        MODULES.add(crosshair);
+        MODULES.add(new ParticlesModule());
+        blockOutline = new BlockOutlineModule();
+        MODULES.add(blockOutline);
+        removals = new RemovalsModule();
+        MODULES.add(removals);
+        MODULES.add(new PainDicationModule());
+        customWorld = new CustomWorldModule();
+        MODULES.add(customWorld);
         MODULES.add(new HeartShowModule());
         seeInvisibles = new SeeInvisiblesModule();
         MODULES.add(seeInvisibles);
@@ -76,6 +91,8 @@ public final class ModuleManager {
         theme = new ThemeModule();
         MODULES.add(theme);
         MODULES.add(new AutoSprintModule());
+        freeLook = new FreeLookModule();
+        MODULES.add(freeLook);
         noJumpDelay = new NoJumpDelayModule();
         MODULES.add(noJumpDelay);
         lockSlot = new LockSlotModule();
@@ -107,7 +124,10 @@ public final class ModuleManager {
                 boolean down = m.bindMouse
                         ? GLFW.glfwGetMouseButton(handle, m.bindCode) == GLFW.GLFW_PRESS
                         : InputUtil.isKeyPressed(handle, m.bindCode);
-                if (down && !m.bindDown && noScreen) {
+                if (m.holdBind()) {
+                    if (down && !m.bindDown && noScreen) m.setEnabled(true);
+                    else if (!down && m.bindDown) m.setEnabled(false);
+                } else if (down && !m.bindDown && noScreen) {
                     m.toggle();
                     save();
                 }
@@ -221,7 +241,7 @@ public final class ModuleManager {
                         if (v != null) st.deserialize(v);
                     }
                 }
-                if (!"swing".equals(m.id) && s.enabled) m.setEnabled(true);
+                if (!"swing".equals(m.id) && s.enabled && m.restoreOnLoad()) m.setEnabled(true);
             }
         } catch (Exception e) {
             SwingAnimationsClient.LOGGER.warn("Повреждён swinganimations_modules.json ({}), использую значения по умолчанию", e.toString());
