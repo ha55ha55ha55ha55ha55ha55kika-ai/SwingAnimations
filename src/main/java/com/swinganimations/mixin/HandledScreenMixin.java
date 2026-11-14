@@ -6,7 +6,9 @@ import com.swinganimations.module.LockSlotModule;
 import com.swinganimations.module.ModuleManager;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
@@ -80,6 +82,10 @@ public abstract class HandledScreenMixin {
             if (m == null || !m.isEnabled() || button != 0 || !Screen.hasShiftDown()) return;
             Slot s = getSlotAt(mx, my);
             if (s == null || !s.hasStack() || s == m.lastSlot) return;
+            if (Screen.hasControlDown()) {
+                if (m.dragItem == null) m.dragItem = s.getStack().getItem();
+                else if (s.getStack().getItem() != m.dragItem) return;
+            }
             long now = System.currentTimeMillis();
             if (now - m.lastTime < m.delayMs()) return;
             m.lastSlot = s;
@@ -93,6 +99,55 @@ public abstract class HandledScreenMixin {
     @Inject(method = "mouseReleased(DDI)Z", at = @At("HEAD"), require = 0)
     private void swa$scrollEnd(double mx, double my, int button, CallbackInfoReturnable<Boolean> cir) {
         ItemScrollerModule m = ModuleManager.itemScroller;
-        if (m != null) m.lastSlot = null;
+        if (m != null) {
+            m.lastSlot = null;
+            m.dragItem = null;
+        }
+    }
+
+    /** ItemScroller: колесо над слотом переносит предметы между инвентарями. */
+    @Inject(method = "mouseScrolled(DDDD)Z", at = @At("HEAD"), cancellable = true, require = 0)
+    private void swa$itemScroll(double mx, double my, double h, double v, CallbackInfoReturnable<Boolean> cir) {
+        try {
+            ItemScrollerModule m = ModuleManager.itemScroller;
+            if (m == null || !m.isEnabled() || (Object) this instanceof CreativeInventoryScreen) return;
+            Slot s = focusedSlot;
+            if (s != null && m.scroll((HandledScreen<?>) (Object) this, s, v)) cir.setReturnValue(true);
+        } catch (Throwable ignored) {
+            // удобство: при сбое колесо работает как в ванили
+        }
+    }
+
+    /** ItemScroller: Ctrl + Shift + ЛКМ переносит все одинаковые предметы. */
+    @Inject(method = "mouseClicked(DDI)Z", at = @At("HEAD"), cancellable = true, require = 0)
+    private void swa$massMove(double mx, double my, int button, CallbackInfoReturnable<Boolean> cir) {
+        try {
+            ItemScrollerModule m = ModuleManager.itemScroller;
+            if (m == null || !m.isEnabled() || button != 0 || (Object) this instanceof CreativeInventoryScreen) return;
+            if (!Screen.hasControlDown() || !Screen.hasShiftDown()) return;
+            Slot s = getSlotAt(mx, my);
+            if (s != null && m.moveAllMatching((HandledScreen<?>) (Object) this, s)) {
+                m.lastSlot = s;
+                m.lastTime = System.currentTimeMillis();
+                cir.setReturnValue(true);
+            }
+        } catch (Throwable ignored) {
+            // не критично
+        }
+    }
+
+    /** ItemScroller: Ctrl + Shift + Q выбрасывает все одинаковые предметы. */
+    @Inject(method = "keyPressed(III)Z", at = @At("HEAD"), cancellable = true, require = 0)
+    private void swa$dropMatching(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        try {
+            ItemScrollerModule m = ModuleManager.itemScroller;
+            if (m == null || !m.isEnabled() || (Object) this instanceof CreativeInventoryScreen) return;
+            if (!Screen.hasControlDown() || !Screen.hasShiftDown()) return;
+            if (!MinecraftClient.getInstance().options.dropKey.matchesKey(keyCode, scanCode)) return;
+            Slot s = focusedSlot;
+            if (s != null && m.dropAllMatching((HandledScreen<?>) (Object) this, s)) cir.setReturnValue(true);
+        } catch (Throwable ignored) {
+            // не критично
+        }
     }
 }

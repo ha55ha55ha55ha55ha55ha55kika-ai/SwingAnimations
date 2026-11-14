@@ -151,5 +151,14 @@
   "swinganimations.setting.tnt_timer.smooth": "Smooth colors",
   "swinganimations.setting.tnt_timer.decimals": "Decimals",
   "swinganimations.setting.tnt_timer.bar": "Progress bar",
-  "swinganimations.hud.drag_hint": "Drag HUD windows with the mouse, right click resets"
+  "swinganimations.hud.drag_hint": "Drag HUD windows with the mouse, right click resets",
+  "swinganimations.module.item_physics": "ItemPhysics",
+  "swinganimations.setting.item_physics.speed": "Rotation speed",
+  "swinganimations.setting.item_physics.blocks": "Affect block items",
+  "swinganimations.setting.item_physics.liquids": "Float in liquids",
+  "swinganimations.setting.item_physics.random_yaw": "Random orientation",
+  "swinganimations.setting.item_scroller.scroll": "Mouse wheel move",
+  "swinganimations.setting.item_scroller.invert_scroll": "Invert wheel",
+  "swinganimations.setting.item_scroller.mass_move": "Ctrl+Shift+Click: move all same",
+  "swinganimations.setting.item_scroller.drop_matching": "Ctrl+Shift+Q: drop all same"
 }

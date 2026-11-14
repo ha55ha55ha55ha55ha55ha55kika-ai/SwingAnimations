@@ -11,7 +11,9 @@
     "LivingEntityRenderStateMixin",
     "HandledScreenMixin",
     "ClientPlayerEntityMixin",
-    "EntityRenderDispatcherMixin"
+    "EntityRenderDispatcherMixin",
+    "ItemEntityRendererMixin",
+    "ItemEntityRenderStateMixin"
   ],
   "injectors": {
     "defaultRequire": 1

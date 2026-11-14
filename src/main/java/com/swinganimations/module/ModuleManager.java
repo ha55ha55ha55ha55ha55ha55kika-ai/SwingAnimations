@@ -39,6 +39,7 @@ public final class ModuleManager {
     public static ItemScrollerModule itemScroller;
     public static NoJumpDelayModule noJumpDelay;
     public static PerformanceModule performance;
+    public static ItemPhysicsModule itemPhysics;
     private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
     private static final int MAX_RENDER_ERRORS = 5;
 
@@ -61,6 +62,8 @@ public final class ModuleManager {
         MODULES.add(new TargetEspModule());
         MODULES.add(new TrailsModule());
         MODULES.add(new JumpCircleModule());
+        itemPhysics = new ItemPhysicsModule();
+        MODULES.add(itemPhysics);
         MODULES.add(new HeartShowModule());
         seeInvisibles = new SeeInvisiblesModule();
         MODULES.add(seeInvisibles);

@@ -177,5 +177,14 @@
   "swinganimations.setting.tnt_timer.smooth": "Плавные цвета",
   "swinganimations.setting.tnt_timer.decimals": "Десятые доли",
   "swinganimations.setting.tnt_timer.bar": "Полоса времени",
-  "swinganimations.hud.drag_hint": "Тяните HUD-окна мышью, ПКМ возвращает на место"
+  "swinganimations.hud.drag_hint": "Тяните HUD-окна мышью, ПКМ возвращает на место",
+  "swinganimations.module.item_physics": "ItemPhysics",
+  "swinganimations.setting.item_physics.speed": "Скорость вращения",
+  "swinganimations.setting.item_physics.blocks": "Для блоков тоже",
+  "swinganimations.setting.item_physics.liquids": "Плавать в жидкостях",
+  "swinganimations.setting.item_physics.random_yaw": "Случайный поворот",
+  "swinganimations.setting.item_scroller.scroll": "Перенос колесом",
+  "swinganimations.setting.item_scroller.invert_scroll": "Инвертировать колесо",
+  "swinganimations.setting.item_scroller.mass_move": "Ctrl+Shift+клик: все одинаковые",
+  "swinganimations.setting.item_scroller.drop_matching": "Ctrl+Shift+Q: выбросить все одинаковые"
 }
