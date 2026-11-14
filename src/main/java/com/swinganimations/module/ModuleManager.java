@@ -5,6 +5,8 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.swinganimations.SwingAnimationsClient;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.minecraft.client.gui.screen.ChatScreen;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.loader.api.FabricLoader;
@@ -67,6 +69,7 @@ public final class ModuleManager {
         MODULES.add(new CooldownsModule());
         MODULES.add(new NotificationsModule());
         MODULES.add(new EquipmentWarningsModule());
+        MODULES.add(new TntTimerModule());
         theme = new ThemeModule();
         MODULES.add(theme);
         MODULES.add(new AutoSprintModule());
@@ -77,6 +80,13 @@ public final class ModuleManager {
         itemScroller = new ItemScrollerModule();
         MODULES.add(itemScroller);
         MODULES.add(new SwingModule());
+        com.swinganimations.gui.HudLayout.load();
+        ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
+            if (!(screen instanceof ChatScreen)) return;
+            com.swinganimations.gui.HudLayout.begin();
+            ScreenEvents.afterRender(screen).register((s, ctx, mx, my, td) -> com.swinganimations.gui.HudLayout.onChatRender(ctx, mx, my));
+            ScreenEvents.remove(screen).register(s -> com.swinganimations.gui.HudLayout.end());
+        });
         load();
         ClientTickEvents.END_CLIENT_TICK.register(ModuleManager::tick);
         HudRenderCallback.EVENT.register((ctx, tickCounter) -> renderHud(ctx, tickCounter.getTickDelta(false)));
@@ -112,6 +122,7 @@ public final class ModuleManager {
 
     private static void renderHud(net.minecraft.client.gui.DrawContext ctx, float tickDelta) {
         ThemeModule.sync();
+        com.swinganimations.gui.HudLayout.nextFrame();
         for (Module m : MODULES) {
             if (!m.isEnabled()) continue;
             try {

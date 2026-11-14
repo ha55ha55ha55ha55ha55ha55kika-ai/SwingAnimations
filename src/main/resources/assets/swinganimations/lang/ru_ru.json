@@ -168,5 +168,14 @@
   "swinganimations.setting.performance.shadows": "Без теней сущностей",
   "swinganimations.setting.performance.particles": "Частицы",
   "swinganimations.setting.performance.clouds": "Без облаков",
-  "swinganimations.setting.heart_show.overhead_max": "Макс. HP над головой"
+  "swinganimations.setting.heart_show.overhead_max": "Макс. HP над головой",
+  "swinganimations.module.tnt_timer": "ТНТ таймер",
+  "swinganimations.setting.tnt_timer.range": "Дистанция",
+  "swinganimations.setting.tnt_timer.scale": "Размер",
+  "swinganimations.setting.tnt_timer.max_labels": "Макс. таймеров",
+  "swinganimations.setting.tnt_timer.predict": "Учить время сервера",
+  "swinganimations.setting.tnt_timer.smooth": "Плавные цвета",
+  "swinganimations.setting.tnt_timer.decimals": "Десятые доли",
+  "swinganimations.setting.tnt_timer.bar": "Полоса времени",
+  "swinganimations.hud.drag_hint": "Тяните HUD-окна мышью, ПКМ возвращает на место"
 }

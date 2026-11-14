@@ -1,6 +1,7 @@
 package com.swinganimations.module;
 
 import com.swinganimations.gui.Hud;
+import com.swinganimations.gui.HudLayout;
 import com.swinganimations.gui.Ui;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -29,6 +30,19 @@ public final class InterfaceModule extends Module {
     private final Setting.Bool keybinds = add(new Setting.Bool("keybinds", "Keybinds", true));
     private final Setting.Bool effects = add(new Setting.Bool("effects", "Effects", true));
     private final Setting.Bool coords = add(new Setting.Bool("coords", "Coordinates", true));
+
+    private final HudLayout.Win winWatermark = HudLayout.win("watermark");
+    private final HudLayout.Win winKeybinds = HudLayout.win("keybinds");
+    private final HudLayout.Win winEffects = HudLayout.win("effects");
+    private final HudLayout.Win winCoords = HudLayout.win("coords");
+
+    // Примеры содержимого для режима правки (открыт чат), когда реальных данных нет.
+    private static final List<Text> S_KB_L = List.of(Text.literal("AutoSprint"), Text.literal("TargetESP"));
+    private static final List<Text> S_KB_R = List.of(Text.literal("R"), Text.literal("G"));
+    private static final List<Integer> S_KB_C = List.of(Ui.TEXT, Ui.TEXT_DIM);
+    private static final List<Text> S_EF_L = List.of(Text.literal("Speed II"), Text.literal("Strength"));
+    private static final List<Text> S_EF_R = List.of(Text.literal("1:30"), Text.literal("0:45"));
+    private static final List<Integer> S_EF_C = List.of(Ui.TEXT, Ui.TEXT);
 
     // Кэш: строки и списки пересобираются только когда меняются, а не каждый кадр.
     private String timeStr = "";
@@ -116,6 +130,7 @@ public final class InterfaceModule extends Module {
         String time = timeStr;
         int pad = 6, lw = 17, lh = 12, gap = 8, h = 18;
         int w = pad + lw + 5 + Hud.w(name) + gap + Hud.w(fps) + gap + Hud.w(time) + pad;
+        HudLayout.push(ctx, winWatermark);
         box(ctx, x, y, w, h, bg);
         ctx.drawTexture(RenderLayer::getGuiTextured, LOGO, x + pad, y + (h - lh) / 2, 0f, 0f, lw, lh, 128, 92, 128, 92);
         int tx = x + pad + lw + 5;
@@ -125,17 +140,26 @@ public final class InterfaceModule extends Module {
         Hud.text(ctx, Text.literal(fps), tx, ty, Ui.TEXT_DIM);
         tx += Hud.w(fps) + gap;
         Hud.text(ctx, Text.literal(time), tx, ty, Ui.TEXT);
+        HudLayout.pop(ctx, winWatermark, x, y, w, h);
         return y + h;
     }
 
     private int keybindsPanel(DrawContext ctx, int x, int y, int bg) {
-        if (kbLeft.isEmpty()) return y;
-        return list(ctx, x, y, Text.translatableWithFallback("swinganimations.hud.keybinds", "Keybinds"), kbLeft, kbRight, kbColors, bg);
+        Text title = Text.translatableWithFallback("swinganimations.hud.keybinds", "Keybinds");
+        if (kbLeft.isEmpty()) {
+            if (!HudLayout.editing()) return y;
+            return list(ctx, x, y, title, S_KB_L, S_KB_R, S_KB_C, bg, winKeybinds);
+        }
+        return list(ctx, x, y, title, kbLeft, kbRight, kbColors, bg, winKeybinds);
     }
 
     private int effectsPanel(DrawContext ctx, ClientPlayerEntity p, int x, int y, int bg) {
-        if (efLeft.isEmpty()) return y;
-        return list(ctx, x, y, Text.translatableWithFallback("swinganimations.hud.effects", "Effects"), efLeft, efRight, efColors, bg);
+        Text title = Text.translatableWithFallback("swinganimations.hud.effects", "Effects");
+        if (efLeft.isEmpty()) {
+            if (!HudLayout.editing()) return y;
+            return list(ctx, x, y, title, S_EF_L, S_EF_R, S_EF_C, bg, winEffects);
+        }
+        return list(ctx, x, y, title, efLeft, efRight, efColors, bg, winEffects);
     }
 
     private int coordsPanel(DrawContext ctx, ClientPlayerEntity p, int x, int y, int bg) {
@@ -148,19 +172,22 @@ public final class InterfaceModule extends Module {
         }
         String s = coordStr;
         int w = Hud.w(s) + 12;
+        HudLayout.push(ctx, winCoords);
         box(ctx, x, y, w, 16, bg);
         Hud.text(ctx, s, x + 6, y + 4, Ui.TEXT);
+        HudLayout.pop(ctx, winCoords, x, y, w, 16);
         return y + 20;
     }
 
     /** Панель «заголовок + строки слева/справа». Возвращает y следующей панели. */
-    private int list(DrawContext ctx, int x, int y, Text title, List<Text> left, List<Text> right, List<Integer> colors, int bg) {
+    private int list(DrawContext ctx, int x, int y, Text title, List<Text> left, List<Text> right, List<Integer> colors, int bg, HudLayout.Win win) {
         int w = Hud.w(title) + 12;
         for (int i = 0; i < left.size(); i++) {
             w = Math.max(w, Hud.w(left.get(i)) + 14 + Hud.w(right.get(i)) + 12);
         }
         w = Math.max(w, 84);
         int h = 18 + left.size() * 11 + 3;
+        HudLayout.push(ctx, win);
         box(ctx, x, y, w, h, bg);
         Hud.text(ctx, title, x + 6, y + 5, Ui.ACCENT);
         ctx.fill(x + 5, y + 15, x + w - 5, y + 16, Ui.SEP);
@@ -169,6 +196,7 @@ public final class InterfaceModule extends Module {
             Hud.text(ctx, left.get(i), x + 6, ry, colors.get(i));
             Hud.textRight(ctx, right.get(i), x + w - 6, ry, Ui.TEXT_DIM);
         }
+        HudLayout.pop(ctx, win, x, y, w, h);
         return y + h + 4;
     }
 

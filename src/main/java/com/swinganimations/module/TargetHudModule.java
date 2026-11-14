@@ -3,6 +3,7 @@ package com.swinganimations.module;
 import com.swinganimations.event.AttackEvent;
 import com.swinganimations.event.EventBus;
 import com.swinganimations.gui.Hud;
+import com.swinganimations.gui.HudLayout;
 import com.swinganimations.gui.Ui;
 import com.swinganimations.util.Spring;
 import net.minecraft.client.MinecraftClient;
@@ -28,6 +29,7 @@ public final class TargetHudModule extends Module {
     private final Setting.Num offX = add(new Setting.Num("x", "X offset", 60f, -300f, 300f, 5f));
     private final Setting.Num offY = add(new Setting.Num("y", "Y offset", 30f, -200f, 300f, 5f));
 
+    private final HudLayout.Win win = HudLayout.win("target_hud");
     private LivingEntity target;
     private long lastSeen;
     private float shownHp = Float.NaN, shownAbs = Float.NaN;
@@ -84,11 +86,14 @@ public final class TargetHudModule extends Module {
         boolean show = target != null && target.isAlive() && !target.isRemoved() && now - lastSeen <= hold.value;
         appear.target = show ? 1f : 0f;
         float a = appear.update();
-        if (target == null || a < 0.02f) {
+        boolean real = target != null && a >= 0.02f;
+        if (!real) {
             if (!show) target = null;
-            return;
+            // Чат открыт: показываем окно на примере игрока, чтобы его можно было перетащить.
+            if (!HudLayout.editing() || mc.player == null) return;
+            a = 1f;
         }
-        LivingEntity e = target;
+        LivingEntity e = real ? target : mc.player;
         float max = Math.max(1f, e.getMaxHealth());
         float cur = e.getHealth();
         float abs = e.getAbsorptionAmount();
@@ -101,6 +106,7 @@ public final class TargetHudModule extends Module {
         int x = ctx.getScaledWindowWidth() / 2 + (int) offX.value;
         int y = ctx.getScaledWindowHeight() / 2 + (int) offY.value;
 
+        HudLayout.push(ctx, win);
         MatrixStack m = ctx.getMatrices();
         m.push();
         float s = 0.85f + 0.15f * MathHelper.clamp(a, 0f, 1.15f);
@@ -145,6 +151,7 @@ public final class TargetHudModule extends Module {
             Hud.textRight(ctx, armorStr, x + w - 6, iy + 4, Ui.TEXT_DIM);
         }
         m.pop();
+        HudLayout.pop(ctx, win, x, y, w, h);
     }
 
     private static int slot(DrawContext ctx, ItemStack st, int x, int y) {

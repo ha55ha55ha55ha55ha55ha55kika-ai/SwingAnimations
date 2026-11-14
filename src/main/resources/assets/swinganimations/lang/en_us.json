@@ -142,5 +142,14 @@
   "swinganimations.setting.performance.shadows": "Entity shadows off",
   "swinganimations.setting.performance.particles": "Particles",
   "swinganimations.setting.performance.clouds": "Clouds off",
-  "swinganimations.setting.heart_show.overhead_max": "Max HP labels"
+  "swinganimations.setting.heart_show.overhead_max": "Max HP labels",
+  "swinganimations.module.tnt_timer": "TntTimer",
+  "swinganimations.setting.tnt_timer.range": "Range",
+  "swinganimations.setting.tnt_timer.scale": "Scale",
+  "swinganimations.setting.tnt_timer.max_labels": "Max labels",
+  "swinganimations.setting.tnt_timer.predict": "Learn server fuse time",
+  "swinganimations.setting.tnt_timer.smooth": "Smooth colors",
+  "swinganimations.setting.tnt_timer.decimals": "Decimals",
+  "swinganimations.setting.tnt_timer.bar": "Progress bar",
+  "swinganimations.hud.drag_hint": "Drag HUD windows with the mouse, right click resets"
 }

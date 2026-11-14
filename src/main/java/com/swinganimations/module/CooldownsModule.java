@@ -1,6 +1,7 @@
 package com.swinganimations.module;
 
 import com.swinganimations.gui.Hud;
+import com.swinganimations.gui.HudLayout;
 import com.swinganimations.gui.Ui;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -10,6 +11,7 @@ import net.minecraft.entity.player.ItemCooldownManager;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +28,7 @@ public final class CooldownsModule extends Module {
 
     private final Setting.Num maxRows = add(new Setting.Num("rows", "Max rows", 6f, 2f, 10f, 1f));
 
+    private final HudLayout.Win win = HudLayout.win("cooldowns");
     private final List<ItemStack> active = new ArrayList<>();
     private final List<Entry> rows = new ArrayList<>();
     private int timer;
@@ -67,7 +70,8 @@ public final class CooldownsModule extends Module {
 
     @Override
     public void renderHud(DrawContext ctx, float tickDelta) {
-        if (active.isEmpty()) return;
+        boolean edit = HudLayout.editing();
+        if (active.isEmpty() && !edit) return;
         MinecraftClient mc = MinecraftClient.getInstance();
         ClientPlayerEntity p = mc.player;
         if (p == null || mc.options.hudHidden) return;
@@ -82,7 +86,11 @@ public final class CooldownsModule extends Module {
             e.progress = pr;
             rows.add(e);
         }
-        if (rows.isEmpty()) return;
+        if (rows.isEmpty()) {
+            if (!edit) return;
+            rows.add(sample(Items.ENDER_PEARL, 0.65f));
+            rows.add(sample(Items.GOLDEN_APPLE, 0.30f));
+        }
         rows.sort((a, b) -> Float.compare(b.progress, a.progress));
         int n = Math.min(rows.size(), (int) maxRows.value);
 
@@ -91,6 +99,7 @@ public final class CooldownsModule extends Module {
         int h = 16 + n * rowH + 2;
         int x = ctx.getScaledWindowWidth() - w - 8;
         int y = 8;
+        HudLayout.push(ctx, win);
         Hud.panel(ctx, x, y, w, h);
         Hud.text(ctx, "Cooldowns", x + 6, y + 5, Ui.ACCENT);
         ctx.fill(x + 5, y + 15, x + w - 5, y + 16, Ui.SEP);
@@ -108,5 +117,13 @@ public final class CooldownsModule extends Module {
             Hud.textRight(ctx, (int) Math.ceil(e.progress * 100f) + "%", x + w - 6, ry + 1, Ui.TEXT_DIM);
             Hud.bar(ctx, x + 22, ry + 11, w - 28, 2, e.progress, Ui.ACCENT);
         }
+        HudLayout.pop(ctx, win, x, y, w, h);
+    }
+
+    private static Entry sample(net.minecraft.item.Item item, float progress) {
+        Entry e = new Entry();
+        e.stack = new ItemStack(item);
+        e.progress = progress;
+        return e;
     }
 }
