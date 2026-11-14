@@ -21,6 +21,11 @@ public abstract class EntityRenderDispatcherMixin {
     private void swa$cull(Entity entity, Frustum frustum, double x, double y, double z,
                           CallbackInfoReturnable<Boolean> cir) {
         try {
+            com.swinganimations.module.KillEffectModule k = ModuleManager.killEffect;
+            if (k != null && k.isHidden(entity)) {
+                cir.setReturnValue(false);
+                return;
+            }
             PerformanceModule m = ModuleManager.performance;
             if (m != null && m.shouldCull(entity, x, y, z)) cir.setReturnValue(false);
         } catch (Throwable ignored) {

@@ -45,6 +45,7 @@ public final class ModuleManager {
     public static FreeLookModule freeLook;
     public static BlockOutlineModule blockOutline;
     public static RemovalsModule removals;
+    public static KillEffectModule killEffect;
     private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
     private static final int MAX_RENDER_ERRORS = 5;
 
@@ -77,6 +78,9 @@ public final class ModuleManager {
         removals = new RemovalsModule();
         MODULES.add(removals);
         MODULES.add(new PainDicationModule());
+        killEffect = new KillEffectModule();
+        MODULES.add(killEffect);
+        MODULES.add(new PredictionModule());
         customWorld = new CustomWorldModule();
         MODULES.add(customWorld);
         MODULES.add(new HeartShowModule());
