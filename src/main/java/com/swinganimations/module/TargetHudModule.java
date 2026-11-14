@@ -30,6 +30,12 @@ public final class TargetHudModule extends Module {
 
     private LivingEntity target;
     private long lastSeen;
+    private float shownHp = Float.NaN, shownAbs = Float.NaN;
+    private String hpText = "";
+    private LivingEntity nameFor;
+    private String nameStr = "";
+    private int armorShown = -1;
+    private String armorStr = "";
     private final Spring hp = new Spring(1f, 160f, 20f);
     private final Spring appear = new Spring(0f, 150f, 18f);
 
@@ -57,6 +63,8 @@ public final class TargetHudModule extends Module {
         if (le != target) {
             target = le;
             hp.snap(frac(le));
+            nameFor = null;
+            shownHp = Float.NaN;
         }
         lastSeen = System.currentTimeMillis();
     }
@@ -101,11 +109,19 @@ public final class TargetHudModule extends Module {
         m.translate(-(x + w / 2f), -(y + h / 2f), 0f);
 
         Hud.panel(ctx, x, y, w, h);
-        String hpText = String.format(Locale.ROOT, "%.1f", cur) + (abs > 0.05f ? String.format(Locale.ROOT, " +%.1f", abs) : "");
+        if (cur != shownHp || abs != shownAbs) {
+            shownHp = cur;
+            shownAbs = abs;
+            hpText = String.format(Locale.ROOT, "%.1f", cur) + (abs > 0.05f ? String.format(Locale.ROOT, " +%.1f", abs) : "");
+            nameFor = null;
+        }
+        if (nameFor != e) {
+            nameFor = e;
+            nameStr = Ui.tr().trimToWidth(e.getName().getString(), w - 12 - Hud.w(hpText) - 6);
+        }
         int color = Hud.hpColor(hf);
         Hud.textRight(ctx, hpText, x + w - 6, y + 6, color);
-        String name = Ui.tr().trimToWidth(e.getName().getString(), w - 12 - Hud.w(hpText) - 6);
-        Hud.text(ctx, name, x + 6, y + 6, Ui.TEXT);
+        Hud.text(ctx, nameStr, x + 6, y + 6, Ui.TEXT);
         Hud.bar(ctx, x + 6, y + 18, w - 12, 5, hf, color);
         if (abs > 0.05f) {
             int aw = Math.round((w - 12) * MathHelper.clamp(abs / max, 0f, 1f));
@@ -121,7 +137,12 @@ public final class TargetHudModule extends Module {
                 if (armor.value) ix += 4;
                 for (EquipmentSlot slot : HANDS) ix = slot(ctx, e.getEquippedStack(slot), ix, iy);
             }
-            Hud.textRight(ctx, "AR " + e.getArmor(), x + w - 6, iy + 4, Ui.TEXT_DIM);
+            int ar = e.getArmor();
+            if (ar != armorShown) {
+                armorShown = ar;
+                armorStr = "AR " + ar;
+            }
+            Hud.textRight(ctx, armorStr, x + w - 6, iy + 4, Ui.TEXT_DIM);
         }
         m.pop();
     }

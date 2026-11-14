@@ -158,5 +158,15 @@
   "swinganimations.hud.effects": "Эффекты",
   "swinganimations.cat.hud": "HUD",
   "swinganimations.cat.player": "Игрок",
-  "key.swinganimations.lock_slot": "Заблокировать слот под курсором"
+  "key.swinganimations.lock_slot": "Заблокировать слот под курсором",
+  "swinganimations.module.performance": "Производительность",
+  "swinganimations.setting.performance.adaptive": "Адаптивное качество",
+  "swinganimations.setting.performance.target_fps": "Целевой FPS",
+  "swinganimations.setting.performance.cull": "Отсечение сущностей",
+  "swinganimations.setting.performance.cull_distance": "Дистанция отсечения",
+  "swinganimations.setting.performance.cull_players": "Отсекать и игроков",
+  "swinganimations.setting.performance.shadows": "Без теней сущностей",
+  "swinganimations.setting.performance.particles": "Частицы",
+  "swinganimations.setting.performance.clouds": "Без облаков",
+  "swinganimations.setting.heart_show.overhead_max": "Макс. HP над головой"
 }

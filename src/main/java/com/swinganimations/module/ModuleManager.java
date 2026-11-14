@@ -36,6 +36,7 @@ public final class ModuleManager {
     public static LockSlotModule lockSlot;
     public static ItemScrollerModule itemScroller;
     public static NoJumpDelayModule noJumpDelay;
+    public static PerformanceModule performance;
     private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
     private static final int MAX_RENDER_ERRORS = 5;
 
@@ -53,6 +54,8 @@ public final class ModuleManager {
     }
 
     public static void init() {
+        performance = new PerformanceModule();
+        MODULES.add(performance);
         MODULES.add(new TargetEspModule());
         MODULES.add(new TrailsModule());
         MODULES.add(new JumpCircleModule());
@@ -123,17 +126,27 @@ public final class ModuleManager {
     public static void renderWorld(Matrix4f positionMatrix, Matrix4f projectionMatrix, Camera camera, float tickDelta) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
-        boolean any = false;
-        for (Module m : MODULES) if (m.isEnabled() && !"swing".equals(m.id)) { any = true; break; }
-        if (!any) return;
+        boolean anyEnabled = false;
+        boolean anyWorld = false;
+        for (Module m : MODULES) {
+            if (!m.isEnabled() || "swing".equals(m.id)) continue;
+            anyEnabled = true;
+            if (m.wantsWorldRender()) {
+                anyWorld = true;
+                break;
+            }
+        }
+        if (!anyEnabled) return;
         com.swinganimations.render.Projection.capture(positionMatrix, projectionMatrix, camera.getPos());
+        // Нечего рисовать в мире: не создаём MatrixStack/RenderContext (HUD-модулям нужна только проекция).
+        if (!anyWorld) return;
         try {
             MatrixStack ms = new MatrixStack();
             ms.multiplyPositionMatrix(positionMatrix);
             ms.translate(-camera.getPos().x, -camera.getPos().y, -camera.getPos().z);
             RenderContext ctx = new RenderContext(ms, camera, tickDelta, System.currentTimeMillis(), mc);
             for (Module m : MODULES) {
-                if (!m.isEnabled()) continue;
+                if (!m.isEnabled() || !m.wantsWorldRender()) continue;
                 if (RENDER_ERRORS.getOrDefault(m.id, 0) >= MAX_RENDER_ERRORS) continue;
                 try {
                     m.render(ctx);

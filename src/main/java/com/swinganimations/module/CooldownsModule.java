@@ -6,44 +6,85 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.player.ItemCooldownManager;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Item;
-import net.minecraft.entity.player.ItemCooldownManager;
 import net.minecraft.item.ItemStack;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
-/** Список предметов, у которых идёт перезарядка (жемчуг, хорус, щит, яблоки и т.д.). Справа сверху. */
+/**
+ * Список предметов, у которых идёт перезарядка (жемчуг, хорус, щит, яблоки и т.д.). Справа сверху.
+ * Инвентарь сканируется раз в 2 тика, в кадре только считается прогресс у уже найденных предметов.
+ */
 public final class CooldownsModule extends Module {
-    private record Entry(ItemStack stack, float progress) {}
+    private static final class Entry {
+        ItemStack stack;
+        float progress;
+    }
 
     private final Setting.Num maxRows = add(new Setting.Num("rows", "Max rows", 6f, 2f, 10f, 1f));
+
+    private final List<ItemStack> active = new ArrayList<>();
+    private final List<Entry> rows = new ArrayList<>();
+    private int timer;
 
     public CooldownsModule() {
         super("cooldowns", "Cooldowns", "hud");
     }
 
     @Override
+    public void onDisable() {
+        active.clear();
+        rows.clear();
+    }
+
+    @Override
+    public void tick(MinecraftClient mc) {
+        if (++timer < 2) return;
+        timer = 0;
+        ClientPlayerEntity p = mc.player;
+        if (p == null) return;
+        ItemCooldownManager cm = p.getItemCooldownManager();
+        PlayerInventory inv = p.getInventory();
+        active.clear();
+        for (int i = 0; i < inv.size(); i++) {
+            ItemStack st = inv.getStack(i);
+            if (st.isEmpty()) continue;
+            Item item = st.getItem();
+            boolean dup = false;
+            for (int k = 0; k < active.size(); k++) {
+                if (active.get(k).getItem() == item) {
+                    dup = true;
+                    break;
+                }
+            }
+            if (dup) continue;
+            if (cm.getCooldownProgress(st, 0f) > 0f) active.add(st);
+        }
+    }
+
+    @Override
     public void renderHud(DrawContext ctx, float tickDelta) {
+        if (active.isEmpty()) return;
         MinecraftClient mc = MinecraftClient.getInstance();
         ClientPlayerEntity p = mc.player;
         if (p == null || mc.options.hudHidden) return;
         ItemCooldownManager cm = p.getItemCooldownManager();
-        PlayerInventory inv = p.getInventory();
-        Set<Item> seen = new HashSet<>();
-        List<Entry> list = new ArrayList<>();
-        for (int i = 0; i < inv.size(); i++) {
-            ItemStack st = inv.getStack(i);
-            if (st.isEmpty() || !seen.add(st.getItem())) continue;
+        rows.clear();
+        for (int i = 0; i < active.size(); i++) {
+            ItemStack st = active.get(i);
             float pr = cm.getCooldownProgress(st, tickDelta);
-            if (pr > 0f) list.add(new Entry(st, pr));
+            if (pr <= 0f) continue;
+            Entry e = new Entry();
+            e.stack = st;
+            e.progress = pr;
+            rows.add(e);
         }
-        if (list.isEmpty()) return;
-        list.sort((a, b) -> Float.compare(b.progress(), a.progress()));
-        int n = Math.min(list.size(), (int) maxRows.value);
+        if (rows.isEmpty()) return;
+        rows.sort((a, b) -> Float.compare(b.progress, a.progress));
+        int n = Math.min(rows.size(), (int) maxRows.value);
 
         int w = 104;
         int rowH = 16;
@@ -55,17 +96,17 @@ public final class CooldownsModule extends Module {
         ctx.fill(x + 5, y + 15, x + w - 5, y + 16, Ui.SEP);
         MatrixStack m = ctx.getMatrices();
         for (int i = 0; i < n; i++) {
-            Entry e = list.get(i);
+            Entry e = rows.get(i);
             int ry = y + 18 + i * rowH;
             m.push();
             m.translate(x + 6, ry, 0f);
             m.scale(0.75f, 0.75f, 1f);
-            ctx.drawItem(e.stack(), 0, 0);
+            ctx.drawItem(e.stack, 0, 0);
             m.pop();
-            String name = Ui.tr().trimToWidth(e.stack().getName().getString(), w - 52);
+            String name = Ui.tr().trimToWidth(e.stack.getName().getString(), w - 52);
             Hud.text(ctx, name, x + 22, ry + 1, Ui.TEXT);
-            Hud.textRight(ctx, (int) Math.ceil(e.progress() * 100f) + "%", x + w - 6, ry + 1, Ui.TEXT_DIM);
-            Hud.bar(ctx, x + 22, ry + 11, w - 28, 2, e.progress(), Ui.ACCENT);
+            Hud.textRight(ctx, (int) Math.ceil(e.progress * 100f) + "%", x + w - 6, ry + 1, Ui.TEXT_DIM);
+            Hud.bar(ctx, x + 22, ry + 11, w - 28, 2, e.progress, Ui.ACCENT);
         }
     }
 }

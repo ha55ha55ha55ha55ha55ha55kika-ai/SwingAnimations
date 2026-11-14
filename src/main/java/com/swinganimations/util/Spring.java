@@ -26,11 +26,21 @@ public final class Spring {
         velocity = 0f;
     }
 
+    /** Пружина уже у цели и не движется: update() ничего не считает. */
+    public boolean settled() {
+        return Math.abs(target - value) < 0.0004f && Math.abs(velocity) < 0.0004f;
+    }
+
     public float update() {
         long now = System.nanoTime();
         float dt = Math.min(0.05f, (now - last) / 1_000_000_000f);
         last = now;
-        int steps = Math.max(1, (int) Math.ceil(dt / 0.004f));
+        if (settled()) {
+            value = target;
+            velocity = 0f;
+            return value;
+        }
+        int steps = Math.max(1, (int) Math.ceil(dt / 0.008f));
         float h = dt / steps;
         for (int i = 0; i < steps; i++) {
             float a = stiffness * (target - value) - damping * velocity;

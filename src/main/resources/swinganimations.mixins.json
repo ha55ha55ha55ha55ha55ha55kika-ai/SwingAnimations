@@ -10,7 +10,8 @@
     "LivingEntityRendererMixin",
     "LivingEntityRenderStateMixin",
     "HandledScreenMixin",
-    "ClientPlayerEntityMixin"
+    "ClientPlayerEntityMixin",
+    "EntityRenderDispatcherMixin"
   ],
   "injectors": {
     "defaultRequire": 1

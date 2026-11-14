@@ -1,6 +1,8 @@
 package com.swinganimations.module;
 
 import com.swinganimations.render.Batch;
+import com.swinganimations.render.Trig;
+import com.swinganimations.util.Perf;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.math.MathHelper;
@@ -57,15 +59,26 @@ public final class JumpCircleModule extends Module {
         wasOnGround = g;
         long now = System.currentTimeMillis();
         float life = lifeMs();
-        circles.removeIf(c -> now - c.t0 > life);
+        for (int i = circles.size() - 1; i >= 0; i--) {
+            if (now - circles.get(i).t0 > life) circles.remove(i);
+        }
     }
+
+    @Override
+    public boolean wantsWorldRender() { return !circles.isEmpty(); }
 
     @Override
     public void render(RenderContext c) {
         if (circles.isEmpty()) return;
         float life = lifeMs();
+        int segs = Perf.quality() == 0 ? 48 : 24;
+        double[] cs = Trig.cos(segs);
+        double[] sn = Trig.sin(segs);
         Batch.begin(true, true);
-        for (Circle ci : circles) {
+        // Все кольца и обе их ленты (свечение + кромка) уходят в один draw call.
+        Batch strip = Batch.strip();
+        for (int k = 0; k < circles.size(); k++) {
+            Circle ci = circles.get(k);
             float f = (c.now - ci.t0) / life;
             if (f >= 1f) continue;
             float alpha = MathHelper.clamp(1f - f * fade.value, 0f, 1f);
@@ -76,28 +89,19 @@ public final class JumpCircleModule extends Module {
             int rgb = color.rgb(c.now, f);
             float phase = (c.now - ci.t0) / 1000f * speed.value * 3f;
 
-            int segs = 64;
-
-            // Tessellator общий: два открытых буфера одновременно нельзя. Строим и рисуем по очереди.
-            Batch glow = Batch.strip();
+            strip.restart();
             for (int i = 0; i <= segs; i++) {
-                double ang = Math.PI * 2.0 * i / segs;
-                float dash = 0.65f + 0.35f * (float) Math.sin(ang * 6.0 + phase);
-                double cx = Math.cos(ang), cz = Math.sin(ang);
-                glow.v(c.m, ci.x + cx * rIn, ci.y, ci.z + cz * rIn, Batch.argb(rgb, 0f));
-                glow.v(c.m, ci.x + cx * rOut, ci.y, ci.z + cz * rOut, Batch.argb(rgb, alpha * dash));
+                float dash = 0.65f + 0.35f * (float) Math.sin(Math.PI * 12.0 * i / segs + phase);
+                strip.v(c.m, ci.x + cs[i] * rIn, ci.y, ci.z + sn[i] * rIn, Batch.argb(rgb, 0f));
+                strip.v(c.m, ci.x + cs[i] * rOut, ci.y, ci.z + sn[i] * rOut, Batch.argb(rgb, alpha * dash));
             }
-            glow.flush();
-
-            Batch edge = Batch.strip();
+            strip.restart();
             for (int i = 0; i <= segs; i++) {
-                double ang = Math.PI * 2.0 * i / segs;
-                double cx = Math.cos(ang), cz = Math.sin(ang);
-                edge.v(c.m, ci.x + cx * rOut, ci.y, ci.z + cz * rOut, Batch.argb(rgb, alpha));
-                edge.v(c.m, ci.x + cx * (rOut + 0.045), ci.y, ci.z + cz * (rOut + 0.045), Batch.argb(rgb, alpha * 0.7f));
+                strip.v(c.m, ci.x + cs[i] * rOut, ci.y, ci.z + sn[i] * rOut, Batch.argb(rgb, alpha));
+                strip.v(c.m, ci.x + cs[i] * (rOut + 0.045), ci.y, ci.z + sn[i] * (rOut + 0.045), Batch.argb(rgb, alpha * 0.7f));
             }
-            edge.flush();
         }
+        strip.flush();
         Batch.end();
     }
 }

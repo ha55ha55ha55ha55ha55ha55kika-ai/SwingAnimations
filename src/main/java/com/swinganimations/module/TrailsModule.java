@@ -1,6 +1,7 @@
 package com.swinganimations.module;
 
 import com.swinganimations.render.Batch;
+import com.swinganimations.util.Perf;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.Perspective;
@@ -32,6 +33,9 @@ public final class TrailsModule extends Module {
         size = 0;
     }
 
+    @Override
+    public boolean wantsWorldRender() { return true; }
+
     private int idx(int i) {
         return (start + i) % CAP;
     }
@@ -58,7 +62,8 @@ public final class TrailsModule extends Module {
         if (!add) {
             int last = idx(size - 1);
             double dx = x - px[last], dy = y - py[last], dz = z - pz[last];
-            add = dx * dx + dy * dy + dz * dz > 0.0009 || now - pt[last] > 60;
+            int q = Perf.quality();
+            add = dx * dx + dy * dy + dz * dz > 0.0009 * (1 + 3 * q * q) || now - pt[last] > 60L * (1 + q);
         }
         if (add) {
             if (size == CAP) {

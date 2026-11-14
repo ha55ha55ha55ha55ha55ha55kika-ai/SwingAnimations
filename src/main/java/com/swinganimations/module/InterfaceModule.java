@@ -30,8 +30,56 @@ public final class InterfaceModule extends Module {
     private final Setting.Bool effects = add(new Setting.Bool("effects", "Effects", true));
     private final Setting.Bool coords = add(new Setting.Bool("coords", "Coordinates", true));
 
+    // Кэш: строки и списки пересобираются только когда меняются, а не каждый кадр.
+    private String timeStr = "";
+    private long timeAt;
+    private String fpsStr = "";
+    private int fpsShown = -1;
+    private String coordStr = "";
+    private long cx = Long.MIN_VALUE, cy, cz;
+    private final List<Text> kbLeft = new ArrayList<>();
+    private final List<Text> kbRight = new ArrayList<>();
+    private final List<Integer> kbColors = new ArrayList<>();
+    private final List<Text> efLeft = new ArrayList<>();
+    private final List<Text> efRight = new ArrayList<>();
+    private final List<Integer> efColors = new ArrayList<>();
+    private int listTimer = 100;
+
     public InterfaceModule() {
         super("interface", "Interface", "hud");
+    }
+
+    @Override
+    public void onDisable() {
+        listTimer = 100;
+    }
+
+    @Override
+    public void tick(MinecraftClient mc) {
+        if (++listTimer < 5) return;
+        listTimer = 0;
+        ClientPlayerEntity p = mc.player;
+        kbLeft.clear();
+        kbRight.clear();
+        kbColors.clear();
+        for (Module m : ModuleManager.MODULES) {
+            if (m.bindCode < 0) continue;
+            kbLeft.add(Text.translatableWithFallback("swinganimations.module." + m.id, m.fallbackName));
+            kbRight.add(keyText(m));
+            kbColors.add(m.isEnabled() ? Ui.TEXT : Ui.TEXT_DIM);
+        }
+        efLeft.clear();
+        efRight.clear();
+        efColors.clear();
+        if (p != null) {
+            for (StatusEffectInstance e : p.getStatusEffects()) {
+                Text name = e.getEffectType().value().getName();
+                Text n = e.getAmplifier() > 0 ? Text.empty().append(name).append(" " + (e.getAmplifier() + 1)) : name;
+                efLeft.add(n);
+                efRight.add(Text.literal(duration(e)));
+                efColors.add(e.getEffectType().value().isBeneficial() ? Ui.TEXT : 0xFFFF8A8A);
+            }
+        }
     }
 
     @Override
@@ -54,8 +102,18 @@ public final class InterfaceModule extends Module {
 
     private int watermark(DrawContext ctx, MinecraftClient mc, int x, int y, int bg) {
         String name = mc.getSession().getUsername();
-        String fps = mc.getCurrentFps() + " fps";
-        String time = LocalTime.now().format(TIME);
+        int fpsNow = mc.getCurrentFps();
+        if (fpsNow != fpsShown) {
+            fpsShown = fpsNow;
+            fpsStr = fpsNow + " fps";
+        }
+        long sec = System.currentTimeMillis() / 1000L;
+        if (sec != timeAt) {
+            timeAt = sec;
+            timeStr = LocalTime.now().format(TIME);
+        }
+        String fps = fpsStr;
+        String time = timeStr;
         int pad = 6, lw = 17, lh = 12, gap = 8, h = 18;
         int w = pad + lw + 5 + Hud.w(name) + gap + Hud.w(fps) + gap + Hud.w(time) + pad;
         box(ctx, x, y, w, h, bg);
@@ -71,39 +129,27 @@ public final class InterfaceModule extends Module {
     }
 
     private int keybindsPanel(DrawContext ctx, int x, int y, int bg) {
-        List<Text> left = new ArrayList<>();
-        List<Text> right = new ArrayList<>();
-        List<Integer> colors = new ArrayList<>();
-        for (Module m : ModuleManager.MODULES) {
-            if (m.bindCode < 0) continue;
-            left.add(Text.translatableWithFallback("swinganimations.module." + m.id, m.fallbackName));
-            right.add(keyText(m));
-            colors.add(m.isEnabled() ? Ui.TEXT : Ui.TEXT_DIM);
-        }
-        if (left.isEmpty()) return y;
-        return list(ctx, x, y, Text.translatableWithFallback("swinganimations.hud.keybinds", "Keybinds"), left, right, colors, bg);
+        if (kbLeft.isEmpty()) return y;
+        return list(ctx, x, y, Text.translatableWithFallback("swinganimations.hud.keybinds", "Keybinds"), kbLeft, kbRight, kbColors, bg);
     }
 
     private int effectsPanel(DrawContext ctx, ClientPlayerEntity p, int x, int y, int bg) {
-        List<Text> left = new ArrayList<>();
-        List<Text> right = new ArrayList<>();
-        List<Integer> colors = new ArrayList<>();
-        for (StatusEffectInstance e : p.getStatusEffects()) {
-            Text name = e.getEffectType().value().getName();
-            Text n = e.getAmplifier() > 0 ? Text.empty().append(name).append(" " + (e.getAmplifier() + 1)) : name;
-            left.add(n);
-            right.add(Text.literal(duration(e)));
-            colors.add(e.getEffectType().value().isBeneficial() ? Ui.TEXT : 0xFFFF8A8A);
-        }
-        if (left.isEmpty()) return y;
-        return list(ctx, x, y, Text.translatableWithFallback("swinganimations.hud.effects", "Effects"), left, right, colors, bg);
+        if (efLeft.isEmpty()) return y;
+        return list(ctx, x, y, Text.translatableWithFallback("swinganimations.hud.effects", "Effects"), efLeft, efRight, efColors, bg);
     }
 
     private int coordsPanel(DrawContext ctx, ClientPlayerEntity p, int x, int y, int bg) {
-        String s = String.format(Locale.ROOT, "XYZ  %.0f  %.0f  %.0f", p.getX(), p.getY(), p.getZ());
+        long nx = Math.round(p.getX()), ny = Math.round(p.getY()), nz = Math.round(p.getZ());
+        if (nx != cx || ny != cy || nz != cz) {
+            cx = nx;
+            cy = ny;
+            cz = nz;
+            coordStr = String.format(Locale.ROOT, "XYZ  %.0f  %.0f  %.0f", p.getX(), p.getY(), p.getZ());
+        }
+        String s = coordStr;
         int w = Hud.w(s) + 12;
         box(ctx, x, y, w, 16, bg);
-        Hud.text(ctx, Text.literal(s), x + 6, y + 4, Ui.TEXT);
+        Hud.text(ctx, s, x + 6, y + 4, Ui.TEXT);
         return y + 20;
     }
 

@@ -51,6 +51,9 @@ public abstract class Module {
 
     public void render(RenderContext c) { }
 
+    /** Нужен ли сейчас мировой рендер. false: кадр не тратит время на подготовку контекста для этого модуля. */
+    public boolean wantsWorldRender() { return false; }
+
     /** Отрисовка поверх HUD (экранные координаты). Вызывается только для включённых модулей. */
     public void renderHud(DrawContext ctx, float tickDelta) { }
 }

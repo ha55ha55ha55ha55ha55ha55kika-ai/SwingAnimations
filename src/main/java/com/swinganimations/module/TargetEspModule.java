@@ -1,6 +1,8 @@
 package com.swinganimations.module;
 
 import com.swinganimations.render.Batch;
+import com.swinganimations.render.Trig;
+import com.swinganimations.util.Perf;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -57,6 +59,9 @@ public final class TargetEspModule extends Module {
     }
 
     @Override
+    public boolean wantsWorldRender() { return target != null; }
+
+    @Override
     public void render(RenderContext c) {
         Entity e = target;
         if (e == null) return;
@@ -94,28 +99,33 @@ public final class TargetEspModule extends Module {
     private void ring(RenderContext c, double x, double y, double z, float w, float h, int rgb, float a) {
         double phase = c.now / 1000.0 * speed.value;
         float r = (w * 0.5f + 0.22f) * size.value;
+        int q = Perf.quality();
+        int layers = q == 0 ? 4 : 2;
+        int segs = q == 0 ? 48 : 24;
         Batch.begin(true, true);
-        for (int k = 0; k < 4; k++) {
+        Batch s = Batch.strip();
+        for (int k = 0; k < layers; k++) {
             double t = 0.5 + 0.5 * Math.sin((phase - k * 0.14) * 2.2);
             double yy = y + h * t;
             float al = a * (k == 0 ? 0.95f : 0.45f / k);
-            wall(c.m, x, yy - 0.14, z, r, 0.14f, Batch.argb(rgb, 0f), Batch.argb(rgb, al));
-            wall(c.m, x, yy, z, r, 0.04f, Batch.argb(rgb, al), Batch.argb(rgb, 0f));
+            wall(s, c.m, x, yy - 0.14, z, r, 0.14f, segs, Batch.argb(rgb, 0f), Batch.argb(rgb, al));
+            wall(s, c.m, x, yy, z, r, 0.04f, segs, Batch.argb(rgb, al), Batch.argb(rgb, 0f));
         }
+        s.flush();
         Batch.end();
     }
 
-    private static void wall(Matrix4f m, double cx, double y0, double cz, float r, float hh, int cBottom, int cTop) {
-        Batch s = Batch.strip();
-        int segs = 48;
+    private static void wall(Batch s, Matrix4f m, double cx, double y0, double cz, float r, float hh, int segs,
+                             int cBottom, int cTop) {
+        double[] cs = Trig.cos(segs);
+        double[] sn = Trig.sin(segs);
+        s.restart();
         for (int i = 0; i <= segs; i++) {
-            double ang = Math.PI * 2.0 * i / segs;
-            double px = cx + Math.cos(ang) * r;
-            double pz = cz + Math.sin(ang) * r;
+            double px = cx + cs[i] * r;
+            double pz = cz + sn[i] * r;
             s.v(m, px, y0, pz, cBottom);
             s.v(m, px, y0 + hh, pz, cTop);
         }
-        s.flush();
     }
 
     // ---------------- Ромб ----------------
@@ -159,14 +169,16 @@ public final class TargetEspModule extends Module {
         float orbit = (w * 0.5f + 0.35f) * size.value;
         Batch.begin(true, true);
         Batch t = Batch.triangles();
+        int trail = Perf.quality() == 0 ? 10 : 5;
+        int discSegs = Perf.quality() == 0 ? 12 : 8;
         for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 10; j++) {
-                double th = phase * 2.2 + i * (Math.PI * 2.0 / 3.0) - j * 0.09;
+            for (int j = 0; j < trail; j++) {
+                double th = phase * 2.2 + i * (Math.PI * 2.0 / 3.0) - j * 0.09 * (10.0 / trail);
                 double yy = y + h * (0.45 + 0.35 * Math.sin(phase * 1.5 + i * 2.1 - j * 0.05));
                 double px = x + Math.cos(th) * orbit;
                 double pz = z + Math.sin(th) * orbit;
-                float k = 1f - j / 10f;
-                disc(t, c, px, yy, pz, 0.16f * size.value * (0.4f + 0.6f * k),
+                float k = 1f - j / (float) trail;
+                disc(t, c, px, yy, pz, 0.16f * size.value * (0.4f + 0.6f * k), discSegs,
                         Batch.argb(rgb, a * 0.85f * k), Batch.argb(rgb, 0f));
             }
         }
@@ -174,20 +186,20 @@ public final class TargetEspModule extends Module {
         Batch.end();
     }
 
-    private static void disc(Batch t, RenderContext c, double x, double y, double z, float r, int centerCol, int rimCol) {
-        int segs = 12;
+    private static void disc(Batch t, RenderContext c, double x, double y, double z, float r, int segs,
+                             int centerCol, int rimCol) {
+        double[] cs = Trig.cos(segs);
+        double[] sn = Trig.sin(segs);
         for (int i = 0; i < segs; i++) {
-            double a0 = Math.PI * 2.0 * i / segs;
-            double a1 = Math.PI * 2.0 * (i + 1) / segs;
             t.v(c.m, x, y, z, centerCol);
-            edge(t, c, x, y, z, r, a0, rimCol);
-            edge(t, c, x, y, z, r, a1, rimCol);
+            edge(t, c, x, y, z, r, cs[i], sn[i], rimCol);
+            edge(t, c, x, y, z, r, cs[i + 1], sn[i + 1], rimCol);
         }
     }
 
-    private static void edge(Batch t, RenderContext c, double x, double y, double z, float r, double ang, int col) {
-        float cx = (float) Math.cos(ang) * r;
-        float cy = (float) Math.sin(ang) * r;
+    private static void edge(Batch t, RenderContext c, double x, double y, double z, float r, double cosA, double sinA, int col) {
+        float cx = (float) cosA * r;
+        float cy = (float) sinA * r;
         t.v(c.m, x + c.rx * cx + c.ux * cy, y + c.ry * cx + c.uy * cy, z + c.rz * cx + c.uz * cy, col);
     }
 }

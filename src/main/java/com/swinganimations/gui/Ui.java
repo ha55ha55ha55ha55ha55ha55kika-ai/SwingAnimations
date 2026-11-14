@@ -26,37 +26,63 @@ public final class Ui {
         return MinecraftClient.getInstance().textRenderer;
     }
 
-    /** Скруглённый прямоугольник из горизонтальных полос (без шейдеров, радиус до ~6). */
+    private static final int[][] INSETS = new int[9][];
+
+    /** Сдвиг по X для каждой строки угла радиуса r (считается один раз, без sqrt в кадре). */
+    private static int[] insets(int r) {
+        int[] t = INSETS[r];
+        if (t == null) {
+            t = new int[r];
+            for (int i = 0; i < r; i++) {
+                double dy = r - i - 0.5;
+                t[i] = r - (int) Math.round(Math.sqrt(r * r - dy * dy));
+            }
+            INSETS[r] = t;
+        }
+        return t;
+    }
+
+    /** Скруглённый прямоугольник: строки с одинаковым сдвигом склеены в один fill (радиус до 8). */
     public static void rect(DrawContext c, int x, int y, int w, int h, int r, int color) {
         if (w <= 0 || h <= 0) return;
-        r = Math.min(r, Math.min(w, h) / 2);
+        r = Math.min(8, Math.min(r, Math.min(w, h) / 2));
         if (r <= 0) {
             c.fill(x, y, x + w, y + h, color);
             return;
         }
-        c.fill(x, y + r, x + w, y + h - r, color);
-        for (int i = 0; i < r; i++) {
-            double dy = r - i - 0.5;
-            int inset = r - (int) Math.round(Math.sqrt(r * r - dy * dy));
-            c.fill(x + inset, y + i, x + w - inset, y + i + 1, color);
-            c.fill(x + inset, y + h - 1 - i, x + w - inset, y + h - i, color);
+        int[] in = insets(r);
+        int top = 0;
+        while (top < r && in[top] > 0) top++;
+        int s = 0;
+        while (s < top) {
+            int e = s + 1;
+            while (e < top && in[e] == in[s]) e++;
+            c.fill(x + in[s], y + s, x + w - in[s], y + e, color);
+            c.fill(x + in[s], y + h - e, x + w - in[s], y + h - s, color);
+            s = e;
         }
+        c.fill(x, y + top, x + w, y + h - top, color);
     }
 
-    /** Тонкая скруглённая обводка. */
+    /** Тонкая скруглённая обводка (вертикальные куски угла склеены). */
     public static void outline(DrawContext c, int x, int y, int w, int h, int r, int color) {
-        r = Math.min(r, Math.min(w, h) / 2);
+        r = Math.min(8, Math.min(r, Math.min(w, h) / 2));
         c.fill(x + r, y, x + w - r, y + 1, color);
         c.fill(x + r, y + h - 1, x + w - r, y + h, color);
         c.fill(x, y + r, x + 1, y + h - r, color);
         c.fill(x + w - 1, y + r, x + w, y + h - r, color);
-        for (int i = 0; i < r; i++) {
-            double dy = r - i - 0.5;
-            int inset = r - (int) Math.round(Math.sqrt(r * r - dy * dy));
-            c.fill(x + inset, y + i, x + inset + 1, y + i + 1, color);
-            c.fill(x + w - inset - 1, y + i, x + w - inset, y + i + 1, color);
-            c.fill(x + inset, y + h - 1 - i, x + inset + 1, y + h - i, color);
-            c.fill(x + w - inset - 1, y + h - 1 - i, x + w - inset, y + h - i, color);
+        if (r <= 0) return;
+        int[] in = insets(r);
+        int s = 0;
+        while (s < r) {
+            int e = s + 1;
+            while (e < r && in[e] == in[s]) e++;
+            int v = in[s];
+            c.fill(x + v, y + s, x + v + 1, y + e, color);
+            c.fill(x + w - v - 1, y + s, x + w - v, y + e, color);
+            c.fill(x + v, y + h - e, x + v + 1, y + h - s, color);
+            c.fill(x + w - v - 1, y + h - e, x + w - v, y + h - s, color);
+            s = e;
         }
     }
 

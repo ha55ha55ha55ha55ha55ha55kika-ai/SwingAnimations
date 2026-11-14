@@ -11,10 +11,17 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.util.math.MathHelper;
 import org.joml.Matrix4f;
 
-/** Тонкая обёртка над BufferBuilder: считает вершины, чтобы не отправлять пустой буфер. */
+/**
+ * Тонкая обёртка над BufferBuilder: считает вершины, чтобы не отправлять пустой буфер.
+ * Для TRIANGLE_STRIP есть restart(): несколько лент склеиваются в один draw call вырожденными треугольниками.
+ */
 public final class Batch {
     private final BufferBuilder b;
     private int n;
+    private boolean restart;
+    private Matrix4f lm;
+    private float lx, ly, lz;
+    private int lc;
 
     private Batch(DrawMode mode) {
         this.b = Tessellator.getInstance().begin(mode, VertexFormats.POSITION_COLOR);
@@ -24,10 +31,29 @@ public final class Batch {
 
     public static Batch triangles() { return new Batch(DrawMode.TRIANGLES); }
 
-    public void v(Matrix4f m, double x, double y, double z, int argb) {
-        b.vertex(m, (float) x, (float) y, (float) z)
-                .color((argb >> 16) & 255, (argb >> 8) & 255, argb & 255, (argb >>> 24) & 255);
+    /** Следующая вершина начинает новую ленту (только для strip). */
+    public void restart() { restart = true; }
+
+    private void put(Matrix4f m, float x, float y, float z, int argb) {
+        b.vertex(m, x, y, z).color((argb >> 16) & 255, (argb >> 8) & 255, argb & 255, (argb >>> 24) & 255);
         n++;
+    }
+
+    public void v(Matrix4f m, double x, double y, double z, int argb) {
+        float fx = (float) x, fy = (float) y, fz = (float) z;
+        if (restart) {
+            restart = false;
+            if (n > 0) {
+                put(lm, lx, ly, lz, lc);
+                put(m, fx, fy, fz, argb);
+            }
+        }
+        put(m, fx, fy, fz, argb);
+        lm = m;
+        lx = fx;
+        ly = fy;
+        lz = fz;
+        lc = argb;
     }
 
     public void flush() {

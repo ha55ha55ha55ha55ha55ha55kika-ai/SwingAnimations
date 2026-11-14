@@ -132,5 +132,15 @@
   "swinganimations.hud.effects": "Effects",
   "swinganimations.cat.hud": "HUD",
   "swinganimations.cat.player": "Player",
-  "key.swinganimations.lock_slot": "Lock hovered slot"
+  "key.swinganimations.lock_slot": "Lock hovered slot",
+  "swinganimations.module.performance": "Performance",
+  "swinganimations.setting.performance.adaptive": "Adaptive quality",
+  "swinganimations.setting.performance.target_fps": "Target FPS",
+  "swinganimations.setting.performance.cull": "Entity culling",
+  "swinganimations.setting.performance.cull_distance": "Cull distance",
+  "swinganimations.setting.performance.cull_players": "Cull players too",
+  "swinganimations.setting.performance.shadows": "Entity shadows off",
+  "swinganimations.setting.performance.particles": "Particles",
+  "swinganimations.setting.performance.clouds": "Clouds off",
+  "swinganimations.setting.heart_show.overhead_max": "Max HP labels"
 }

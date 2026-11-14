@@ -22,6 +22,8 @@ public final class EquipmentWarningsModule extends Module {
     private final Setting.Bool onScreen = add(new Setting.Bool("on_screen", "Warning on screen", true));
 
     private final boolean[] warned = new boolean[4];
+    private final List<ItemStack> low = new ArrayList<>();
+    private final List<Integer> lowPct = new ArrayList<>();
 
     public EquipmentWarningsModule() {
         super("equipment_warnings", "EquipmentWarnings", "hud");
@@ -30,6 +32,8 @@ public final class EquipmentWarningsModule extends Module {
     @Override
     public void onDisable() {
         java.util.Arrays.fill(warned, false);
+        low.clear();
+        lowPct.clear();
     }
 
     private static int percent(ItemStack st) {
@@ -41,15 +45,22 @@ public final class EquipmentWarningsModule extends Module {
     public void tick(MinecraftClient mc) {
         ClientPlayerEntity p = mc.player;
         if (p == null) return;
+        low.clear();
+        lowPct.clear();
         for (int i = 0; i < ARMOR.length; i++) {
             ItemStack st = p.getEquippedStack(ARMOR[i]);
-            boolean low = percent(st) <= threshold.value;
-            if (low && !warned[i]) {
+            int pct = percent(st);
+            boolean isLow = pct <= threshold.value;
+            if (isLow) {
+                low.add(st);
+                lowPct.add(pct);
+            }
+            if (isLow && !warned[i]) {
                 warned[i] = true;
                 if (notify.value) {
-                    EventBus.post(new NotificationEvent(st.getName().getString(), percent(st) + "% durability", 0xFFB347));
+                    EventBus.post(new NotificationEvent(st.getName().getString(), pct + "% durability", 0xFFB347));
                 }
-            } else if (!low) {
+            } else if (!isLow) {
                 warned[i] = false;
             }
         }
@@ -57,15 +68,9 @@ public final class EquipmentWarningsModule extends Module {
 
     @Override
     public void renderHud(DrawContext ctx, float tickDelta) {
+        if (low.isEmpty() || !onScreen.value) return;
         MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity p = mc.player;
-        if (p == null || !onScreen.value || mc.options.hudHidden) return;
-        List<ItemStack> low = new ArrayList<>();
-        for (EquipmentSlot s : ARMOR) {
-            ItemStack st = p.getEquippedStack(s);
-            if (percent(st) <= threshold.value) low.add(st);
-        }
-        if (low.isEmpty()) return;
+        if (mc.player == null || mc.options.hudHidden) return;
         float pulse = 0.65f + 0.35f * (float) Math.sin(System.currentTimeMillis() / 220.0);
         int col = ((int) (pulse * 255f) << 24) | 0xFF6B6B;
         int rowH = 18;
@@ -80,7 +85,7 @@ public final class EquipmentWarningsModule extends Module {
             ctx.drawItem(st, x + 5, ry);
             String name = Ui.tr().trimToWidth(st.getName().getString(), w - 60);
             Hud.text(ctx, name, x + 25, ry + 5, Ui.TEXT);
-            Hud.textRight(ctx, percent(st) + "%", x + w - 6, ry + 5, col);
+            Hud.textRight(ctx, lowPct.get(i) + "%", x + w - 6, ry + 5, col);
         }
     }
 }
