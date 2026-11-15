@@ -295,5 +295,8 @@
   "swinganimations.setting.client_link.badge_tab": "Значок в TAB",
   "swinganimations.setting.client_link.music_tags": "Показывать, что слушают другие",
   "swinganimations.setting.client_link.music_range": "Дальность плашки музыки",
-  "swinganimations.setting.client_link.transport": "Связь"
+  "swinganimations.setting.client_link.transport": "Связь",
+  "swinganimations.setting.glow_hand.hand": "Пустая рука",
+  "swinganimations.setting.glow_hand.items": "Предметы в руке (меч и т.д.)",
+  "swinganimations.setting.event_hud.test_marker": "Тестовая метка (в 8 блоках перед вами)"
 }

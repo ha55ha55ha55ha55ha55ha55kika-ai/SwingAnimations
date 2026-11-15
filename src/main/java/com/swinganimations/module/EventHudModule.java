@@ -36,8 +36,14 @@ import java.util.regex.Pattern;
  */
 public final class EventHudModule extends Module {
     private static final int ROWS = 6;
-    private static final Pattern COORDS = Pattern.compile("(-?\\d{1,7})\\D{1,12}(-?\\d{1,3})\\D{1,12}(-?\\d{1,7})");
-    private static final Pattern HINT = Pattern.compile("(?i)ивент|event|коорд|coord|x\\s*[:=]|кординат");
+    private static final Pattern XYZ = Pattern.compile("(?i)x\\s*[:=]?\\s*(-?\\d+)\\D{0,8}?y\\s*[:=]?\\s*(-?\\d+)\\D{0,8}?z\\s*[:=]?\\s*(-?\\d+)");
+    private static final Pattern XZ = Pattern.compile("(?i)x\\s*[:=]?\\s*(-?\\d+)\\D{0,12}?z\\s*[:=]?\\s*(-?\\d+)");
+    private static final Pattern THREE = Pattern.compile("(-?\\d{1,7})\\D{1,12}?(-?\\d{1,3})\\D{1,12}?(-?\\d{1,7})");
+    private static final Pattern TWO = Pattern.compile("(-?\\d{2,7})\\D{1,12}?(-?\\d{2,7})");
+    /** Сильный признак объявления ивента или координат. */
+    private static final Pattern STRONG = Pattern.compile("(?i)ивент|event|коорд|coord|кординат|локаци|появил|начал|спавн");
+    /** Названия типов ивентов HolyWorld (на случай, если в строке нет слова «ивент»). */
+    private static final Pattern NAMES = Pattern.compile("(?i)лихорад|корабл|груз|кубик|посылк|шахт|тыпо|полян|контейнер|крепост");
 
     private final Setting.Num server = add(new Setting.Num("server", "Anarchy number (0 = all)", 0f, 0f, (float) HolyWorldApi.MAX_ANARCHY, 1f));
     private final Setting.Num rows = add(new Setting.Num("rows", "Rows", 6f, 3f, 10f, 1f));
@@ -45,6 +51,7 @@ public final class EventHudModule extends Module {
     private final Setting.Num markerTtl = add(new Setting.Num("marker_ttl", "Marker lifetime (min)", 10f, 1f, 60f, 1f));
     private final Setting.Bool debugChat = add(new Setting.Bool("debug_chat", "Log chat lines with coords", true));
     private final Setting.Bool openSearch = add(new Setting.Bool("search", "Open anarchy search", false));
+    private final Setting.Bool testMarker = add(new Setting.Bool("test_marker", "Test marker (8 blocks ahead)", false));
     private final Setting.Num interval = add(new Setting.Num("interval", "Update interval (s)", 15f, 10f, 60f, 1f));
 
     private final HudLayout.Win win = HudLayout.win("event_hud");
@@ -61,20 +68,27 @@ public final class EventHudModule extends Module {
         final double x, y, z;
         final String name;
         final long created;
+        /** Высота неизвестна (в чате только X и Z): луч рисуется на весь диапазон высот. */
+        final boolean tall;
 
-        Marker(double x, double y, double z, String name, long created) {
+        Marker(double x, double y, double z, String name, long created, boolean tall) {
             this.x = x;
             this.y = y;
             this.z = z;
             this.name = name;
             this.created = created;
+            this.tall = tall;
         }
     }
 
     public EventHudModule() {
         super("event_hud", "EventHud", "hud");
+        // Объявления бывают системными сообщениями, в панели над хотбаром или обычным чатом: слушаем все каналы.
         ClientReceiveMessageEvents.GAME.register((msg, overlay) -> {
-            if (!overlay && isEnabled()) onChat(msg.getString());
+            if (isEnabled()) onChat(msg.getString(), true);
+        });
+        ClientReceiveMessageEvents.CHAT.register((msg, signed, sender, params, ts) -> {
+            if (isEnabled()) onChat(msg.getString(), false);
         });
     }
 
@@ -116,6 +130,13 @@ public final class EventHudModule extends Module {
             openSearch.value = false;
             openSearch();
         }
+        if (testMarker.value) {
+            testMarker.value = false;
+            if (mc.player != null) {
+                var look = mc.player.getRotationVec(1f);
+                addMarker(mc.player.getX() + look.x * 8, mc.player.getY(), mc.player.getZ() + look.z * 8, "Тест", false);
+            }
+        }
     }
 
     /** Число ивентов по анархиям 1..36; best[n] = лучший ранг редкости (0 нет, 1 обычный ... 4 легендарный). */
@@ -151,20 +172,69 @@ public final class EventHudModule extends Module {
 
     // ---------------- чат -> метка ----------------
 
-    /** Ищем три числа (X Y Z) в строке, где есть слово про ивент или координаты. Метка ставится только по такой строке. */
-    void onChat(String raw) {
-        if (!HINT.matcher(raw).find()) return;
-        Matcher m = COORDS.matcher(raw);
-        if (!m.find()) return;
-        int x = Integer.parseInt(m.group(1));
-        int y = Integer.parseInt(m.group(2));
-        int z = Integer.parseInt(m.group(3));
-        if (y < -64 || y > 320) return;
+    /**
+     * Разбор строки чата. Порядок: X Y Z с подписями, X и Z с подписями, три числа подряд, два числа подряд.
+     * Метка ставится только если в строке есть слово про ивент или координаты (или название ивента из API).
+     * Подходящие строки пишутся в лог: «EventHud chat:» (метка поставлена) и «EventHud chat?:» (признак есть, координаты не разобраны).
+     */
+    void onChat(String raw, boolean system) {
+        if (raw == null || raw.length() > 600) return;
+        boolean named = mentionsKnownEvent(raw) || NAMES.matcher(raw).find();
+        boolean strong = STRONG.matcher(raw).find();
+        if (!strong && !named) return;
+        // Обычный игровой чат пропускаем, если в нём нет названия ивента: иначе «ивент 100 200» от игрока ставил бы метку.
+        if (!system && !named) return;
+        double x, y, z;
+        boolean tall = false;
+        Matcher m = XYZ.matcher(raw);
+        if (m.find()) {
+            x = Integer.parseInt(m.group(1));
+            y = Integer.parseInt(m.group(2));
+            z = Integer.parseInt(m.group(3));
+        } else if ((m = XZ.matcher(raw)).find()) {
+            x = Integer.parseInt(m.group(1));
+            z = Integer.parseInt(m.group(2));
+            y = playerY();
+            tall = true;
+        } else if (strong && (m = THREE.matcher(raw)).find() && inRange(Integer.parseInt(m.group(2)))) {
+            x = Integer.parseInt(m.group(1));
+            y = Integer.parseInt(m.group(2));
+            z = Integer.parseInt(m.group(3));
+        } else if (strong && (m = TWO.matcher(raw)).find()) {
+            x = Integer.parseInt(m.group(1));
+            z = Integer.parseInt(m.group(2));
+            y = playerY();
+            tall = true;
+        } else {
+            if (debugChat.value) SwingAnimationsClient.LOGGER.info("EventHud chat?: {}", raw);
+            return;
+        }
+        if (!inRange((int) y)) {
+            if (debugChat.value) SwingAnimationsClient.LOGGER.info("EventHud chat?: {}", raw);
+            return;
+        }
         if (debugChat.value) SwingAnimationsClient.LOGGER.info("EventHud chat: {}", raw);
         if (!autoMarker.value) return;
-        String name = currentEventName(raw);
+        addMarker(x + 0.5, y, z + 0.5, currentEventName(raw), tall);
+    }
+
+    private static boolean inRange(int y) { return y >= -64 && y <= 320; }
+
+    private static double playerY() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        return mc.player != null ? Math.floor(mc.player.getY()) : 64.0;
+    }
+
+    private static boolean mentionsKnownEvent(String raw) {
+        for (HolyWorldApi.Event e : HolyWorldApi.latest()) {
+            if (raw.contains(e.name())) return true;
+        }
+        return false;
+    }
+
+    private void addMarker(double x, double y, double z, String name, boolean tall) {
         markers.removeIf(k -> k.name.equals(name));
-        markers.add(new Marker(x + 0.5, y, z + 0.5, name, System.currentTimeMillis()));
+        markers.add(new Marker(x, y, z, name, System.currentTimeMillis(), tall));
         while (markers.size() > 3) markers.remove(0);
     }
 
@@ -191,7 +261,8 @@ public final class EventHudModule extends Module {
     private static void drawBeacon(RenderContext c, Marker k, long now) {
         int rgb = Ui.ACCENT & 0xFFFFFF;
         float pulse = 0.8f + 0.2f * (float) Math.sin(now / 350.0);
-        double h = 48;
+        double h = k.tall ? 256 : 48;
+        double base = k.tall ? k.y - 64 : k.y;
         double r = 0.22;
         Matrix4f m = c.m;
         Batch.begin(true, true);
@@ -202,8 +273,8 @@ public final class EventHudModule extends Module {
             double x1 = k.x + Math.cos(a1) * r, z1 = k.z + Math.sin(a1) * r;
             int lo = Batch.argb(rgb, 0.55f * pulse);
             int hi = Batch.argb(rgb, 0f);
-            b.v(m, x0, k.y, z0, lo); b.v(m, x1, k.y, z1, lo); b.v(m, x1, k.y + h, z1, hi);
-            b.v(m, x0, k.y, z0, lo); b.v(m, x1, k.y + h, z1, hi); b.v(m, x0, k.y + h, z0, hi);
+            b.v(m, x0, base, z0, lo); b.v(m, x1, base, z1, lo); b.v(m, x1, base + h, z1, hi);
+            b.v(m, x0, base, z0, lo); b.v(m, x1, base + h, z1, hi); b.v(m, x0, base + h, z0, hi);
         }
         b.flush();
         Batch.end();

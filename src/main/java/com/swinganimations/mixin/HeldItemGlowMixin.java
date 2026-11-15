@@ -7,6 +7,7 @@ import com.swinganimations.module.ModuleManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.PlayerEntityRenderer;
 import net.minecraft.client.render.item.HeldItemRenderer;
+import net.minecraft.client.render.item.ItemRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
@@ -38,5 +39,17 @@ public abstract class HeldItemGlowMixin {
         original.call(r, m, v, light, skin, sleeve);
         GlowHandModule g = ModuleManager.glowHand;
         if (g != null && g.isEnabled()) g.drawSafe(r, m, v, skin, false);
+    }
+
+    /** Предмет в руке (меч, инструмент): после ванильной отрисовки добавляем слои свечения. */
+    @WrapOperation(method = "renderItem",
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/client/render/item/ItemRenderState;render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;II)V"),
+            require = 0)
+    private void swa$glowItem(ItemRenderState state, MatrixStack m, VertexConsumerProvider v, int light, int overlay,
+                              Operation<Void> original) {
+        original.call(state, m, v, light, overlay);
+        GlowHandModule g = ModuleManager.glowHand;
+        if (g != null && g.isEnabled()) g.drawItemSafe(state, m, v, overlay);
     }
 }

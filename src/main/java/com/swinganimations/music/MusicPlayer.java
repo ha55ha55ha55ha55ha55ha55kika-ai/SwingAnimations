@@ -5,18 +5,27 @@ import javazoom.jl.decoder.Decoder;
 import javazoom.jl.decoder.Header;
 import javazoom.jl.decoder.SampleBuffer;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.SourceDataLine;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.openal.AL;
+import org.lwjgl.openal.AL10;
+import org.lwjgl.openal.ALC;
+import org.lwjgl.openal.ALC10;
+import org.lwjgl.openal.ALCCapabilities;
+import org.lwjgl.openal.EXTThreadLocalContext;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Плеер MP3-потоков. Декодирует JLayer'ом и выводит звук через Java Sound в отдельном потоке,
- * поэтому не мешает игре и не зависит от OpenAL Minecraft. Очередь, пауза, громкость, автопереход к следующему треку.
+ * Плеер MP3-потоков. Декодирует JLayer'ом и выводит звук через OpenAL (то, чем играет сама игра; Java Sound на Android/Pojav недоступен)
+ * в отдельном потоке с собственным контекстом, поэтому не мешает игре и её звукам. Очередь, пауза, громкость, автопереход к следующему треку.
  * Весь публичный API потокобезопасен; состояния читаются из потока рендера без блокировок.
  */
 public final class MusicPlayer {
@@ -132,10 +141,122 @@ public final class MusicPlayer {
         }
     }
 
+    // ---------------- вывод звука через OpenAL ----------------
+
+    /**
+     * Потоковый вывод PCM в OpenAL. По возможности создаёт свой контекст, привязанный только к этому потоку
+     * (ALC_EXT_thread_local_context), чтобы не трогать звуки игры. Если расширения нет, используется общий контекст игры.
+     */
+    private static final class AlOut {
+        private static final int BUFFERS = 6;
+        private long dev, ctx;
+        private boolean ownDevice, threadCtx, ownGlobal;
+        private int source;
+        private final int[] bufs = new int[BUFFERS];
+        private final ArrayDeque<Integer> free = new ArrayDeque<>();
+        private int format, rate;
+        private final ShortBuffer scratch = BufferUtils.createShortBuffer(65536);
+
+        void open(int rate, int channels) {
+            this.rate = rate;
+            this.format = channels == 1 ? AL10.AL_FORMAT_MONO16 : AL10.AL_FORMAT_STEREO16;
+            long cur = ALC10.alcGetCurrentContext();
+            dev = cur != 0L ? ALC10.alcGetContextsDevice(cur) : 0L;
+            if (dev == 0L) {
+                dev = ALC10.alcOpenDevice((ByteBuffer) null);
+                ownDevice = true;
+            }
+            if (dev == 0L) throw new IllegalStateException("OpenAL: нет аудиоустройства");
+            ALCCapabilities alcCaps = ALC.createCapabilities(dev);
+            if (alcCaps.ALC_EXT_thread_local_context) {
+                ctx = ALC10.alcCreateContext(dev, (IntBuffer) null);
+                if (ctx != 0L && EXTThreadLocalContext.alcSetThreadContext(ctx)) {
+                    AL.createCapabilities(alcCaps);
+                    threadCtx = true;
+                }
+            }
+            if (!threadCtx && cur == 0L) {
+                if (ctx == 0L) ctx = ALC10.alcCreateContext(dev, (IntBuffer) null);
+                ALC10.alcMakeContextCurrent(ctx);
+                AL.createCapabilities(alcCaps);
+                ownGlobal = true;
+            }
+            source = AL10.alGenSources();
+            for (int i = 0; i < BUFFERS; i++) {
+                bufs[i] = AL10.alGenBuffers();
+                free.add(bufs[i]);
+            }
+        }
+
+        void gain(float g) { AL10.alSourcef(source, AL10.AL_GAIN, g); }
+
+        private void reclaim() {
+            int done = AL10.alGetSourcei(source, AL10.AL_BUFFERS_PROCESSED);
+            while (done-- > 0) free.add(AL10.alSourceUnqueueBuffers(source));
+        }
+
+        /** Кладёт n сэмплов в очередь; ждёт свободный буфер, пока трек не сменили. */
+        boolean write(short[] pcm, int n, int gen) throws InterruptedException {
+            int off = 0;
+            while (off < n) {
+                if (gen != GEN.get()) return false;
+                reclaim();
+                Integer buf = free.poll();
+                if (buf == null) {
+                    Thread.sleep(8L);
+                    gain(volume * volume);
+                    continue;
+                }
+                int len = Math.min(n - off, scratch.capacity());
+                scratch.clear();
+                scratch.put(pcm, off, len).flip();
+                AL10.alBufferData(buf, format, scratch, rate);
+                AL10.alSourceQueueBuffers(source, buf);
+                off += len;
+                if (!paused && AL10.alGetSourcei(source, AL10.AL_SOURCE_STATE) != AL10.AL_PLAYING) AL10.alSourcePlay(source);
+            }
+            return true;
+        }
+
+        void pause() { AL10.alSourcePause(source); }
+
+        void resume() { AL10.alSourcePlay(source); }
+
+        /** Ждёт, пока доиграет хвост очереди. */
+        void drain(int gen) throws InterruptedException {
+            while (gen == GEN.get() && !paused && AL10.alGetSourcei(source, AL10.AL_SOURCE_STATE) == AL10.AL_PLAYING) {
+                gain(volume * volume);
+                Thread.sleep(30L);
+            }
+        }
+
+        void close() {
+            try {
+                if (source != 0) {
+                    AL10.alSourceStop(source);
+                    AL10.alSourcei(source, AL10.AL_BUFFER, 0);
+                    AL10.alDeleteSources(source);
+                }
+                for (int b : bufs) if (b != 0) AL10.alDeleteBuffers(b);
+            } catch (Throwable ignored) { }
+            try {
+                if (threadCtx) {
+                    EXTThreadLocalContext.alcSetThreadContext(0L);
+                    AL.setCurrentThread(null);
+                    ALC10.alcDestroyContext(ctx);
+                } else if (ownGlobal) {
+                    ALC10.alcMakeContextCurrent(0L);
+                    ALC10.alcDestroyContext(ctx);
+                }
+                if (ownDevice && dev != 0L) ALC10.alcCloseDevice(dev);
+            } catch (Throwable ignored) { }
+        }
+    }
+
     // ---------------- поток воспроизведения ----------------
 
     private static void run(Track t, int gen) {
-        SourceDataLine line = null;
+        AlOut out = null;
         InputStream in = null;
         try {
             in = new BufferedInputStream(Http.open(t.streamUrl()), 64 * 1024);
@@ -143,39 +264,41 @@ public final class MusicPlayer {
             if (gen != GEN.get()) return;
             Bitstream bs = new Bitstream(in);
             Decoder dec = new Decoder();
-            byte[] out = new byte[8192];
+            short[] acc = new short[32768];
+            int accN = 0;
             Header h;
             while (gen == GEN.get() && (h = bs.readFrame()) != null) {
                 SampleBuffer sb = (SampleBuffer) dec.decodeFrame(h, bs);
-                if (line == null) {
-                    AudioFormat fmt = new AudioFormat(dec.getOutputFrequency(), 16, dec.getOutputChannels(), true, false);
-                    line = AudioSystem.getSourceDataLine(fmt);
-                    line.open(fmt, Math.max(8192, (int) (fmt.getFrameRate() * fmt.getFrameSize() * 0.25f)));
-                    line.start();
+                if (out == null) {
+                    out = new AlOut();
+                    out.open(dec.getOutputFrequency(), dec.getOutputChannels());
+                    out.gain(volume * volume);
                 }
                 short[] pcm = sb.getBuffer();
                 int n = sb.getBufferLength();
-                if (out.length < n * 2) out = new byte[n * 2];
-                float g = volume * volume;
-                for (int i = 0; i < n; i++) {
-                    int v = Math.round(pcm[i] * g);
-                    if (v > 32767) v = 32767;
-                    else if (v < -32768) v = -32768;
-                    out[i * 2] = (byte) v;
-                    out[i * 2 + 1] = (byte) (v >> 8);
+                if (accN + n > acc.length) {
+                    if (!out.write(acc, accN, gen)) break;
+                    accN = 0;
                 }
-                if (paused) {
-                    line.stop();
-                    while (paused && gen == GEN.get()) Thread.sleep(40L);
-                    if (gen != GEN.get()) break;
-                    line.start();
+                System.arraycopy(pcm, 0, acc, accN, n);
+                accN += n;
+                // копим около 0,1 с звука перед отправкой, чтобы не плодить мелкие буферы
+                if (accN >= 8192) {
+                    if (paused) {
+                        out.pause();
+                        while (paused && gen == GEN.get()) Thread.sleep(40L);
+                        if (gen != GEN.get()) break;
+                        out.resume();
+                    }
+                    if (!out.write(acc, accN, gen)) break;
+                    accN = 0;
                 }
-                line.write(out, 0, n * 2);
                 positionMs += (long) h.ms_per_frame();
                 if (state == State.LOADING && gen == GEN.get()) state = State.PLAYING;
                 bs.closeFrame();
             }
-            if (line != null && gen == GEN.get()) line.drain();
+            if (out != null && accN > 0 && gen == GEN.get()) out.write(acc, accN, gen);
+            if (out != null && gen == GEN.get()) out.drain(gen);
             if (gen == GEN.get()) finished(gen);
         } catch (Throwable e) {
             if (gen == GEN.get()) {
@@ -184,9 +307,7 @@ public final class MusicPlayer {
                 state = State.ERROR;
             }
         } finally {
-            if (line != null) {
-                try { line.stop(); line.close(); } catch (Throwable ignored) { }
-            }
+            if (out != null) out.close();
             if (in != null) {
                 try { in.close(); } catch (IOException ignored) { }
             }
