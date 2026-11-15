@@ -54,7 +54,14 @@ public final class ClientLink {
     public static final int STATE_PAUSED = 2;
 
     private static final long TTL_MS = 100_000L;
-    private static final long HEARTBEAT_MS = 30_000L;
+    /** /hello шлём раз в 30-45 с (случайный разброс, чтобы клиенты не бились в реле одновременно). Запись на реле живёт 90 с. */
+    private static final long HELLO_MIN_MS = 30_000L;
+    private static final long HELLO_MAX_MS = 45_000L;
+    /** Список игроков с клиентом запрашиваем чаще, чтобы значки у новых игроков появлялись быстро. */
+    private static final long POLL_MIN_MS = 12_000L;
+    private static final long POLL_MAX_MS = 18_000L;
+    /** Смена трека отправляется сразу, но не чаще раза в 5 с. */
+    private static final long CHANGE_THROTTLE_MS = 5_000L;
     private static final int MAX_TEXT = 80;
 
     /** Запись об игроке: неизменяемая, заменяется целиком. */
@@ -65,7 +72,11 @@ public final class ClientLink {
     private static final Map<UUID, Peer> PEERS = new ConcurrentHashMap<>();
     private static volatile ScheduledExecutorService http;
     private static volatile String lastSentKey = "";
-    private static volatile long lastSentAt;
+    private static volatile long lastHelloAt;
+    private static volatile long nextHelloAt;
+    private static volatile long nextPollAt;
+    private static volatile boolean firstSyncDone;
+    private static volatile boolean warnedAuth;
     private static volatile boolean helloSent;
     private static volatile boolean httpBusy;
     private static volatile int curState;
@@ -96,7 +107,14 @@ public final class ClientLink {
         PEERS.clear();
         helloSent = false;
         lastSentKey = "";
-        lastSentAt = 0L;
+        lastHelloAt = 0L;
+        nextHelloAt = 0L;
+        nextPollAt = 0L;
+        firstSyncDone = false;
+    }
+
+    private static long jitter(long min, long max) {
+        return min + java.util.concurrent.ThreadLocalRandom.current().nextLong(max - min + 1L);
     }
 
     // ---------------- запросы ----------------
@@ -228,39 +246,69 @@ public final class ClientLink {
         curArtist = artist;
         String key = state + "|" + title + "|" + artist;
         boolean changed = !key.equals(lastSentKey);
-        boolean beat = now - lastSentAt >= HEARTBEAT_MS;
-        if (!m.sharing()) return;
-        if (!changed && !beat && helloSent) return;
 
-        boolean sent = false;
-        if (m.useChannel() && ClientPlayNetworking.canSend(LinkPayloads.Up.ID)) {
+        // /hello: при входе, раз в 30-45 с и при смене трека (не чаще раза в 5 с). Только если вы не отключили «Share».
+        boolean dueHello = m.sharing() && (!helloSent || now >= nextHelloAt
+                || (changed && now - lastHelloAt >= CHANGE_THROTTLE_MS));
+        // Список игроков с клиентом нужен и тем, кто о себе не сообщает.
+        boolean duePoll = now >= nextPollAt;
+        if (!dueHello && !duePoll) return;
+
+        boolean helloDone = false;
+        boolean pollDone = false;
+        if (dueHello && m.useChannel() && ClientPlayNetworking.canSend(LinkPayloads.Up.ID)) {
             try {
                 ClientPlayNetworking.send(new LinkPayloads.Up(encode(state, title, artist)));
-                sent = true;
+                helloDone = true;
             } catch (Throwable t) {
                 SwingAnimationsClient.LOGGER.debug("ClientLink: не отправлено ({})", t.toString());
             }
         }
-        if (m.useHttp() && !m.relayUrl().isEmpty() && mc.getCurrentServerEntry() != null) {
-            httpSync(mc, m, state, title, artist);
-            sent = true;
+        if (m.useHttp() && !m.relayUrl().isEmpty() && !serverId(mc).isEmpty()) {
+            // Запрос уходит, только если предыдущий уже завершился; иначе повторим через секунду.
+            if (httpSync(mc, m, state, title, artist, dueHello, true)) {
+                helloDone |= dueHello;
+                pollDone = true;
+            }
         }
-        if (sent) {
+        if (helloDone) {
             helloSent = true;
             lastSentKey = key;
-            lastSentAt = now;
+            lastHelloAt = now;
+            nextHelloAt = now + jitter(HELLO_MIN_MS, HELLO_MAX_MS);
+        }
+        if (pollDone) {
+            // Первый опрос после входа повторяем через 5 с: список игроков сервера мог ещё не прийти.
+            nextPollAt = now + (firstSyncDone ? jitter(POLL_MIN_MS, POLL_MAX_MS) : 5_000L);
+            firstSyncDone = true;
         }
     }
 
     // ---------------- HTTP-реле ----------------
 
-    private static String serverId(MinecraftClient mc) {
-        ServerInfo si = mc.getCurrentServerEntry();
-        return si == null ? "" : si.address.toLowerCase(Locale.ROOT).trim();
+    /**
+     * Единый ключ сервера: адрес из списка серверов в нижнем регистре, без пробелов, без конечной точки
+     * (FQDN) и без стандартного порта :25565, чтобы «Play.Site.com», «play.site.com.» и
+     * «play.site.com:25565» дали одно и то же значение у всех игроков.
+     */
+    static String normalizeServer(String address) {
+        if (address == null) return "";
+        String s = address.toLowerCase(Locale.ROOT).trim();
+        while (s.endsWith(".")) s = s.substring(0, s.length() - 1);
+        if (s.endsWith(":25565")) s = s.substring(0, s.length() - 6);
+        while (s.endsWith(".")) s = s.substring(0, s.length() - 1);
+        return s.length() > 100 ? s.substring(0, 100) : s;
     }
 
-    private static void httpSync(MinecraftClient mc, ClientLinkModule m, int state, String title, String artist) {
-        if (httpBusy) return;
+    private static String serverId(MinecraftClient mc) {
+        ServerInfo si = mc.getCurrentServerEntry();
+        return si == null ? "" : normalizeServer(si.address);
+    }
+
+    /** @return true, если запрос принят в работу (false: предыдущий ещё идёт). */
+    private static boolean httpSync(MinecraftClient mc, ClientLinkModule m, int state, String title, String artist,
+                                    boolean hello, boolean peers) {
+        if (httpBusy) return false;
         httpBusy = true;
         String url = m.relayUrl();
         String token = m.relayToken();
@@ -285,7 +333,8 @@ public final class ClientLink {
                 o.addProperty("state", state);
                 o.addProperty("title", clean(title));
                 o.addProperty("artist", clean(artist));
-                post(url + "/hello", o.toString(), token);
+                if (hello) post(url + "/hello", o.toString(), token);
+                if (!peers) return;
                 String json = get(url + "/peers?server=" + java.net.URLEncoder.encode(server, StandardCharsets.UTF_8), token);
                 JsonElement root = JsonParser.parseString(json);
                 if (root.isJsonArray()) {
@@ -304,16 +353,17 @@ public final class ClientLink {
                 }
             } catch (Throwable t) {
                 SwingAnimationsClient.LOGGER.debug("ClientLink HTTP: {}", t.toString());
+                if (t.getMessage() != null && t.getMessage().contains("HTTP 403") && !warnedAuth) {
+                    warnedAuth = true;
+                    SwingAnimationsClient.LOGGER.warn("ClientLink: реле отклонило токен (403). Проверьте relay_token и SWING_TOKEN на реле.");
+                    mc.execute(() -> mc.inGameHud.setOverlayMessage(
+                            Text.literal("ClientLink: реле отклонило токен (403), проверьте relay_token"), false));
+                }
             } finally {
                 httpBusy = false;
             }
         });
-    }
-
-    /** Периодический опрос реле, даже когда своё состояние менять не нужно (чтобы видеть других). */
-    public static void poll(MinecraftClient mc, ClientLinkModule m) {
-        if (!m.useHttp() || m.relayUrl().isEmpty() || mc.getCurrentServerEntry() == null || mc.player == null) return;
-        httpSync(mc, m, curState, curTitle, curArtist);
+        return true;
     }
 
     private static HttpURLConnection open(String url, String method, String token) throws IOException {

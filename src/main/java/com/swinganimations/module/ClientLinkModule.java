@@ -20,6 +20,14 @@ import java.util.List;
  * Связь: канал сервера (нужен плагин-реле) и/или HTTP-реле. Сколько и что показывать о себе, настраивается тут же.
  */
 public final class ClientLinkModule extends Module {
+    /**
+     * Реле по умолчанию для всех, кто играет с этим билдом (впишите свои значения перед сборкой, чтобы игрокам
+     * не пришлось ничего настраивать). Токен внутри jar не секрет, он только отсекает случайный спам.
+     * Если у игрока в конфиге relay_url / relay_token не пустые, используются они.
+     */
+    private static final String DEFAULT_RELAY_URL = "http://78.154.103.37:14682";
+    private static final String DEFAULT_RELAY_TOKEN = "VpVSfC7r5xW9VlS2zCMwIVM9";
+
     private final Setting.Bool share = add(new Setting.Bool("share", "Share that I use the client", true));
     private final Setting.Bool shareMusic = add(new Setting.Bool("share_music", "Share what I listen to", true));
     private final Setting.Bool badgeName = add(new Setting.Bool("badge_name", "Badge by nick", true));
@@ -35,7 +43,6 @@ public final class ClientLinkModule extends Module {
     private final List<PlayerEntity> tagged = new ArrayList<>();
     private final float[] out = new float[2];
     private int timer;
-    private int pollTimer;
 
     public ClientLinkModule() {
         super("client_link", "ClientLink", "hud");
@@ -62,11 +69,15 @@ public final class ClientLinkModule extends Module {
 
     public String relayUrl() {
         String u = relayUrl.value == null ? "" : relayUrl.value.trim();
+        if (u.isEmpty()) u = DEFAULT_RELAY_URL.trim();
         while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
         return u.startsWith("http://") || u.startsWith("https://") ? u : "";
     }
 
-    public String relayToken() { return relayToken.value == null ? "" : relayToken.value.trim(); }
+    public String relayToken() {
+        String t = relayToken.value == null ? "" : relayToken.value.trim();
+        return t.isEmpty() ? DEFAULT_RELAY_TOKEN.trim() : t;
+    }
 
     @Override
     public void tick(MinecraftClient mc) {
@@ -75,11 +86,7 @@ public final class ClientLinkModule extends Module {
             return;
         }
         timer = 0;
-        ClientLink.tick(mc, this);
-        if (++pollTimer >= 8) {
-            pollTimer = 0;
-            ClientLink.poll(mc, this);
-        }
+        ClientLink.tick(mc, this); // сам решает, когда слать /hello (30-45 с) и когда опрашивать список
         scanTags(mc);
     }
 
