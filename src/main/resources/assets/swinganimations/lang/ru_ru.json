@@ -266,5 +266,13 @@
   "swinganimations.setting.glow_hand.color_mode": "Цвет",
   "swinganimations.setting.glow_hand.red": "Красный",
   "swinganimations.setting.glow_hand.green": "Зелёный",
-  "swinganimations.setting.glow_hand.blue": "Синий"
+  "swinganimations.setting.glow_hand.blue": "Синий",
+  "swinganimations.module.event_hud": "EventHud",
+  "key.swinganimations.event_page": "Ивенты: следующая страница",
+  "swinganimations.setting.event_hud.server": "Номер анархии (0 = все)",
+  "swinganimations.setting.event_hud.rows": "Строк на странице",
+  "swinganimations.setting.event_hud.auto_marker": "Авто-метка из чата",
+  "swinganimations.setting.event_hud.marker_ttl": "Время жизни метки (мин)",
+  "swinganimations.setting.event_hud.debug_chat": "Писать строки с координатами в лог",
+  "swinganimations.setting.event_hud.interval": "Обновление (сек)"
 }

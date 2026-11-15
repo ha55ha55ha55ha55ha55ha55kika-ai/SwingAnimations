@@ -48,6 +48,7 @@ public final class ModuleManager {
     public static KillEffectModule killEffect;
     public static EntityEspModule entityEsp;
     public static GlowHandModule glowHand;
+    public static EventHudModule eventHud;
     private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
     private static final int MAX_RENDER_ERRORS = 5;
 
@@ -72,6 +73,8 @@ public final class ModuleManager {
         MODULES.add(entityEsp);
         glowHand = new GlowHandModule();
         MODULES.add(glowHand);
+        eventHud = new EventHudModule();
+        MODULES.add(eventHud);
         MODULES.add(new TrailsModule());
         MODULES.add(new JumpCircleModule());
         itemPhysics = new ItemPhysicsModule();

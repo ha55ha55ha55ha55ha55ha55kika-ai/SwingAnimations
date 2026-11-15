@@ -21,6 +21,7 @@ public final class KeyBinds {
     public static KeyBinding CROSSHAIR_COLOR;
     public static KeyBinding FREE_LOOK;
     public static KeyBinding FRIEND;
+    public static KeyBinding EVENT_PAGE;
     private static boolean freeLookDown;
 
     private KeyBinds() {}
@@ -33,6 +34,7 @@ public final class KeyBinds {
         CROSSHAIR_STYLE = reg("crosshair_style", GLFW.GLFW_KEY_UNKNOWN); // назначается игроком в «Управлении»
         CROSSHAIR_COLOR = reg("crosshair_color", GLFW.GLFW_KEY_UNKNOWN);
         FRIEND = reg("friend", GLFW.GLFW_KEY_UNKNOWN);
+        EVENT_PAGE = reg("event_page", GLFW.GLFW_KEY_UNKNOWN);
         FREE_LOOK = reg("free_look", GLFW.GLFW_KEY_UNKNOWN);  // обычная клавиша управления: работает и на Android (Pojav)
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
     }
@@ -49,6 +51,10 @@ public final class KeyBinds {
         crosshairKeys(mc);
         freeLookKey(mc);
         friendKey(mc);
+        while (EVENT_PAGE.wasPressed()) {
+            com.swinganimations.module.EventHudModule ev = com.swinganimations.module.ModuleManager.eventHud;
+            if (ev != null) ev.nextPage();
+        }
         SwingConfig cfg = ConfigManager.get();
         while (TOGGLE.wasPressed()) {
             cfg.enabled = !cfg.enabled;
