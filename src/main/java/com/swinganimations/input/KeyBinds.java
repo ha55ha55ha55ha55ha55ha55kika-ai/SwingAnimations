@@ -22,6 +22,7 @@ public final class KeyBinds {
     public static KeyBinding FREE_LOOK;
     public static KeyBinding FRIEND;
     public static KeyBinding EVENT_PAGE;
+    public static KeyBinding EVENT_SEARCH;
     private static boolean freeLookDown;
 
     private KeyBinds() {}
@@ -35,6 +36,7 @@ public final class KeyBinds {
         CROSSHAIR_COLOR = reg("crosshair_color", GLFW.GLFW_KEY_UNKNOWN);
         FRIEND = reg("friend", GLFW.GLFW_KEY_UNKNOWN);
         EVENT_PAGE = reg("event_page", GLFW.GLFW_KEY_UNKNOWN);
+        EVENT_SEARCH = reg("event_search", GLFW.GLFW_KEY_K);
         FREE_LOOK = reg("free_look", GLFW.GLFW_KEY_UNKNOWN);  // обычная клавиша управления: работает и на Android (Pojav)
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
     }
@@ -54,6 +56,10 @@ public final class KeyBinds {
         while (EVENT_PAGE.wasPressed()) {
             com.swinganimations.module.EventHudModule ev = com.swinganimations.module.ModuleManager.eventHud;
             if (ev != null) ev.nextPage();
+        }
+        while (EVENT_SEARCH.wasPressed()) {
+            com.swinganimations.module.EventHudModule ev = com.swinganimations.module.ModuleManager.eventHud;
+            if (ev != null && mc.currentScreen == null) ev.openSearch();
         }
         SwingConfig cfg = ConfigManager.get();
         while (TOGGLE.wasPressed()) {

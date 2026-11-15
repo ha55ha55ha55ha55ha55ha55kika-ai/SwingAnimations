@@ -202,5 +202,7 @@
   "swinganimations.setting.interface.effects_scale": "Effects scale",
   "swinganimations.setting.theme.main_menu": "Custom main menu",
   "key.swinganimations.friend": "Add/remove friend (aimed player)",
-  "key.swinganimations.event_page": "Events: next page"
+  "key.swinganimations.event_page": "Events: next page",
+  "key.swinganimations.event_search": "Events: anarchy search",
+  "swinganimations.setting.event_hud.search": "Open anarchy search"
 }

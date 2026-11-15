@@ -274,5 +274,7 @@
   "swinganimations.setting.event_hud.auto_marker": "Авто-метка из чата",
   "swinganimations.setting.event_hud.marker_ttl": "Время жизни метки (мин)",
   "swinganimations.setting.event_hud.debug_chat": "Писать строки с координатами в лог",
-  "swinganimations.setting.event_hud.interval": "Обновление (сек)"
+  "swinganimations.setting.event_hud.interval": "Обновление (сек)",
+  "key.swinganimations.event_search": "Ивенты: поиск анархии",
+  "swinganimations.setting.event_hud.search": "Открыть поиск анархии"
 }

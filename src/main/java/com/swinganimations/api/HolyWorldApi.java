@@ -34,6 +34,9 @@ public final class HolyWorldApi {
     private static volatile long updatedAt;
     private static ScheduledExecutorService pool;
 
+    /** На лайте ровно 36 анархий (1–36). Всё, что выше, в списке сервера не существует. */
+    public static final int MAX_ANARCHY = 36;
+
     private HolyWorldApi() {}
 
     /** Последний успешно полученный список (может быть пустым). */
@@ -100,6 +103,17 @@ public final class HolyWorldApi {
 
     private static String str(JsonObject o, String k, String def) {
         return o.has(k) && o.get(k).isJsonPrimitive() ? o.get(k).getAsString() : def;
+    }
+
+    /** Номер анархии из ключа сервера (число после последнего «_»); -1, если номера нет. */
+    public static int number(String server) {
+        int i = server.lastIndexOf('_');
+        if (i < 0 || i == server.length() - 1) return -1;
+        try {
+            return Integer.parseInt(server.substring(i + 1));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     /** Ключ сервера вида LITE_ANARCHY_17 или LITE_NEW_ANARCHY_17 заканчивается на _N. */
