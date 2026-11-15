@@ -28,7 +28,10 @@
     "HeldItemRendererBobMixin",
     "MinecraftClientMixin",
     "HeartTypeMixin",
-    "WorldRendererSkyMixin"
+    "WorldRendererSkyMixin",
+    "PlayerDisplayNameMixin",
+    "PlayerListHudMixin",
+    "ChatHudBadgeMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -49,6 +49,8 @@ public final class ModuleManager {
     public static EntityEspModule entityEsp;
     public static GlowHandModule glowHand;
     public static EventHudModule eventHud;
+    public static MusicModule music;
+    public static ClientLinkModule clientLink;
     private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
     private static final int MAX_RENDER_ERRORS = 5;
 
@@ -75,6 +77,11 @@ public final class ModuleManager {
         MODULES.add(glowHand);
         eventHud = new EventHudModule();
         MODULES.add(eventHud);
+        music = new MusicModule();
+        MODULES.add(music);
+        clientLink = new ClientLinkModule();
+        MODULES.add(clientLink);
+        com.swinganimations.link.ClientLink.init();
         MODULES.add(new TrailsModule());
         MODULES.add(new JumpCircleModule());
         itemPhysics = new ItemPhysicsModule();

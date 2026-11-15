@@ -23,6 +23,10 @@ public final class KeyBinds {
     public static KeyBinding FRIEND;
     public static KeyBinding EVENT_PAGE;
     public static KeyBinding EVENT_SEARCH;
+    public static KeyBinding MUSIC_OPEN;
+    public static KeyBinding MUSIC_PAUSE;
+    public static KeyBinding MUSIC_NEXT;
+    public static KeyBinding MUSIC_PREV;
     private static boolean freeLookDown;
 
     private KeyBinds() {}
@@ -37,6 +41,10 @@ public final class KeyBinds {
         FRIEND = reg("friend", GLFW.GLFW_KEY_UNKNOWN);
         EVENT_PAGE = reg("event_page", GLFW.GLFW_KEY_UNKNOWN);
         EVENT_SEARCH = reg("event_search", GLFW.GLFW_KEY_K);
+        MUSIC_OPEN = reg("music_open", GLFW.GLFW_KEY_M);
+        MUSIC_PAUSE = reg("music_pause", GLFW.GLFW_KEY_UNKNOWN);
+        MUSIC_NEXT = reg("music_next", GLFW.GLFW_KEY_UNKNOWN);
+        MUSIC_PREV = reg("music_prev", GLFW.GLFW_KEY_UNKNOWN);
         FREE_LOOK = reg("free_look", GLFW.GLFW_KEY_UNKNOWN);  // обычная клавиша управления: работает и на Android (Pojav)
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
     }
@@ -61,6 +69,7 @@ public final class KeyBinds {
             com.swinganimations.module.EventHudModule ev = com.swinganimations.module.ModuleManager.eventHud;
             if (ev != null && mc.currentScreen == null) ev.openSearch();
         }
+        musicKeys(mc);
         SwingConfig cfg = ConfigManager.get();
         while (TOGGLE.wasPressed()) {
             cfg.enabled = !cfg.enabled;
@@ -128,6 +137,30 @@ public final class KeyBinds {
             if (!c.isEnabled()) c.setEnabled(true);
             message(mc, Text.literal("Crosshair color: " + c.nextColor()));
         }
+    }
+
+    private static void musicKeys(MinecraftClient mc) {
+        com.swinganimations.module.MusicModule mm = com.swinganimations.module.ModuleManager.music;
+        while (MUSIC_OPEN.wasPressed()) {
+            if (mm != null && mc.currentScreen == null) mm.openBrowser();
+        }
+        while (MUSIC_PAUSE.wasPressed()) {
+            com.swinganimations.music.MusicPlayer.togglePause();
+            nowPlaying(mc);
+        }
+        while (MUSIC_NEXT.wasPressed()) {
+            com.swinganimations.music.MusicPlayer.next();
+            nowPlaying(mc);
+        }
+        while (MUSIC_PREV.wasPressed()) {
+            com.swinganimations.music.MusicPlayer.prev();
+            nowPlaying(mc);
+        }
+    }
+
+    private static void nowPlaying(MinecraftClient mc) {
+        com.swinganimations.music.Track t = com.swinganimations.music.MusicPlayer.current();
+        if (t != null) message(mc, Text.literal("Music: " + t.title() + (t.artist().isEmpty() ? "" : " - " + t.artist())));
     }
 
     private static void message(MinecraftClient mc, Text t) {
