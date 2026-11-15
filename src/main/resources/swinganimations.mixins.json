@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "HeldItemRendererMixin",
+    "HeldItemGlowMixin",
     "LivingEntityMixin",
     "LivingEntityDeathMixin",
     "WorldRendererMixin",

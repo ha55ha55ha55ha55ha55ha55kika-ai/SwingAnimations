@@ -200,5 +200,6 @@
   "swinganimations.setting.target_hud.head": "Player head",
   "swinganimations.setting.target_hud.scale": "Scale",
   "swinganimations.setting.interface.effects_scale": "Effects scale",
-  "swinganimations.setting.theme.main_menu": "Custom main menu"
+  "swinganimations.setting.theme.main_menu": "Custom main menu",
+  "key.swinganimations.friend": "Add/remove friend (aimed player)"
 }

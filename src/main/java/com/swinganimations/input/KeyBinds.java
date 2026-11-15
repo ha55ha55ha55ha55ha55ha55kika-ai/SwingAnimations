@@ -20,6 +20,7 @@ public final class KeyBinds {
     public static KeyBinding CROSSHAIR_STYLE;
     public static KeyBinding CROSSHAIR_COLOR;
     public static KeyBinding FREE_LOOK;
+    public static KeyBinding FRIEND;
     private static boolean freeLookDown;
 
     private KeyBinds() {}
@@ -31,6 +32,7 @@ public final class KeyBinds {
         LOCK = reg("lock_slot", GLFW.GLFW_KEY_L);
         CROSSHAIR_STYLE = reg("crosshair_style", GLFW.GLFW_KEY_UNKNOWN); // назначается игроком в «Управлении»
         CROSSHAIR_COLOR = reg("crosshair_color", GLFW.GLFW_KEY_UNKNOWN);
+        FRIEND = reg("friend", GLFW.GLFW_KEY_UNKNOWN);
         FREE_LOOK = reg("free_look", GLFW.GLFW_KEY_UNKNOWN);  // обычная клавиша управления: работает и на Android (Pojav)
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
     }
@@ -46,6 +48,7 @@ public final class KeyBinds {
         }
         crosshairKeys(mc);
         freeLookKey(mc);
+        friendKey(mc);
         SwingConfig cfg = ConfigManager.get();
         while (TOGGLE.wasPressed()) {
             cfg.enabled = !cfg.enabled;
@@ -82,6 +85,22 @@ public final class KeyBinds {
             }
         }
         freeLookDown = down;
+    }
+
+    /** Добавить или убрать друга: игрок в прицеле. */
+    private static void friendKey(MinecraftClient mc) {
+        while (FRIEND.wasPressed()) {
+            com.swinganimations.module.EntityEspModule esp = com.swinganimations.module.ModuleManager.entityEsp;
+            if (esp == null || mc.player == null) continue;
+            if (mc.targetedEntity instanceof net.minecraft.entity.player.PlayerEntity p) {
+                String n = p.getName().getString();
+                boolean now = esp.toggleFriend(n);
+                message(mc, Text.translatableWithFallback(now ? "swinganimations.msg.friend_added" : "swinganimations.msg.friend_removed",
+                        now ? "Friend added: %s" : "Friend removed: %s", n));
+            } else {
+                message(mc, Text.translatableWithFallback("swinganimations.msg.friend_aim", "Aim at a player"));
+            }
+        }
     }
 
     private static void crosshairKeys(MinecraftClient mc) {
