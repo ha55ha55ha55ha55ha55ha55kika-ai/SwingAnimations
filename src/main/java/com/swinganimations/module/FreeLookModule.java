@@ -1,5 +1,6 @@
 package com.swinganimations.module;
 
+import com.swinganimations.SwingAnimationsClient;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.Perspective;
 import net.minecraft.util.math.MathHelper;
@@ -17,6 +18,8 @@ public final class FreeLookModule extends Module {
     private float yaw;
     private float pitch;
     private Perspective previous;
+    private int activeTicks;
+    private int rotateCalls;
 
     public FreeLookModule() {
         super("free_look", "FreeLook", "player");
@@ -28,6 +31,8 @@ public final class FreeLookModule extends Module {
 
     @Override
     public void onEnable() {
+        activeTicks = 0;
+        rotateCalls = 0;
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player != null) {
             yaw = mc.player.getYaw();
@@ -52,8 +57,18 @@ public final class FreeLookModule extends Module {
         return enabled && mc.player != null && mc.getCameraEntity() == mc.player;
     }
 
+    @Override
+    public void tick(MinecraftClient mc) {
+        // Диагностика: 2 секунды включён, а мышь ни разу не дошла до хука поворота. Тогда в логе будет эта строка.
+        if (++activeTicks == 40 && rotateCalls == 0) {
+            SwingAnimationsClient.LOGGER.warn("FreeLook: включён, но движение мыши не доходит до хука Entity.changeLookDirection. "
+                    + "Если камера не крутится, пришлите этот лог.");
+        }
+    }
+
     /** Движение мыши вместо поворота игрока. Формула та же, что у ванили (0.15 на пиксель). */
     public void rotate(double dx, double dy) {
+        rotateCalls++;
         float k = 0.15f * sensitivity.value;
         yaw += (float) dx * k;
         pitch = MathHelper.clamp(pitch + (float) dy * k, -90f, 90f);

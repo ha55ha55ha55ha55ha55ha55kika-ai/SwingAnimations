@@ -7,6 +7,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.text.Text;
@@ -46,6 +47,8 @@ public final class InterfaceModule extends Module {
     private final Setting.Bool coords = add(new Setting.Bool("coords", "Coordinates", true));
     private final Setting.Bool keybinds = add(new Setting.Bool("keybinds", "Keybinds", true));
     private final Setting.Bool effects = add(new Setting.Bool("effects", "Effects", true));
+    private final Setting.Num effectsScale = add(new Setting.Num("effects_scale", "Effects scale", 0.8f, 0.5f, 1.5f, 0.05f)
+            .<Setting.Num>visibleWhen(() -> effects.value));
 
     private final HudLayout.Win winWatermark = HudLayout.win("watermark");
     private final HudLayout.Win winKeybinds = HudLayout.win("keybinds");
@@ -210,18 +213,18 @@ public final class InterfaceModule extends Module {
         Text title = Text.translatableWithFallback("swinganimations.hud.keybinds", "Keybinds");
         if (kbLeft.isEmpty()) {
             if (!HudLayout.editing()) return y;
-            return block(ctx, x, y, I_KEYS, title, S_KB_L, S_KB_R, S_KB_C, false, winKeybinds);
+            return block(ctx, x, y, I_KEYS, title, S_KB_L, S_KB_R, S_KB_C, false, winKeybinds, 1f);
         }
-        return block(ctx, x, y, I_KEYS, title, kbLeft, kbRight, kbColors, false, winKeybinds);
+        return block(ctx, x, y, I_KEYS, title, kbLeft, kbRight, kbColors, false, winKeybinds, 1f);
     }
 
     private int effectsBlock(DrawContext ctx, int x, int y) {
         Text title = Text.translatableWithFallback("swinganimations.hud.effects", "Effects");
         if (efLeft.isEmpty()) {
             if (!HudLayout.editing()) return y;
-            return block(ctx, x, y, I_FLASK, title, S_EF_L, S_EF_R, S_EF_C, true, winEffects);
+            return block(ctx, x, y, I_FLASK, title, S_EF_L, S_EF_R, S_EF_C, true, winEffects, effectsScale.value);
         }
-        return block(ctx, x, y, I_FLASK, title, efLeft, efRight, efColors, true, winEffects);
+        return block(ctx, x, y, I_FLASK, title, efLeft, efRight, efColors, true, winEffects, effectsScale.value);
     }
 
     /**
@@ -229,7 +232,7 @@ public final class InterfaceModule extends Module {
      * rightAlign: правый текст прижат к краю (эффекты), иначе стоит сразу за названием (бинды).
      */
     private int block(DrawContext ctx, int x, int y, Identifier icon, Text title, List<Text> left, List<Text> right,
-                      List<Integer> colors, boolean rightAlign, HudLayout.Win win) {
+                      List<Integer> colors, boolean rightAlign, HudLayout.Win win, float sc) {
         int w = PAD + ICON + 4 + Hud.w(title) + 7;
         for (int i = 0; i < left.size(); i++) {
             w = Math.max(w, PAD + ICON + 4 + Hud.w(left.get(i)) + 8 + Hud.w(right.get(i)) + 7);
@@ -239,6 +242,15 @@ public final class InterfaceModule extends Module {
         int total = (rows + 1) * (H + GAP) - GAP;
 
         HudLayout.push(ctx, win);
+        MatrixStack m = ctx.getMatrices();
+        boolean scaled = sc != 1f;
+        if (scaled) {
+            // Масштаб от левого верхнего угла блока: рамка перетаскивания считается по уменьшенному размеру.
+            m.push();
+            m.translate(x, y, 0f);
+            m.scale(sc, sc, 1f);
+            m.translate(-x, -y, 0f);
+        }
         Hud.chip(ctx, x, y, w, H);
         Hud.icon(ctx, icon, x + PAD, y + (H - ICON) / 2, ICON);
         Hud.text(ctx, title, x + PAD + ICON + 4, y + (H - 8) / 2, Ui.TEXT);
@@ -255,8 +267,10 @@ public final class InterfaceModule extends Module {
                 Hud.text(ctx, right.get(i), tx + Hud.w(left.get(i)) + 8, ty, Ui.TEXT_DIM);
             }
         }
-        HudLayout.pop(ctx, win, x, y, w, total);
-        return y + total + GAP;
+        if (scaled) m.pop();
+        int shownH = Math.round(total * sc);
+        HudLayout.pop(ctx, win, x, y, Math.round(w * sc), shownH);
+        return y + shownH + GAP;
     }
 
     private static Text keyText(Module m) {

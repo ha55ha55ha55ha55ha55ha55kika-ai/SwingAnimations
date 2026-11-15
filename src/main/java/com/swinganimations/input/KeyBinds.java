@@ -19,6 +19,8 @@ public final class KeyBinds {
     public static KeyBinding LOCK;
     public static KeyBinding CROSSHAIR_STYLE;
     public static KeyBinding CROSSHAIR_COLOR;
+    public static KeyBinding FREE_LOOK;
+    private static boolean freeLookDown;
 
     private KeyBinds() {}
 
@@ -29,6 +31,7 @@ public final class KeyBinds {
         LOCK = reg("lock_slot", GLFW.GLFW_KEY_L);
         CROSSHAIR_STYLE = reg("crosshair_style", GLFW.GLFW_KEY_UNKNOWN); // назначается игроком в «Управлении»
         CROSSHAIR_COLOR = reg("crosshair_color", GLFW.GLFW_KEY_UNKNOWN);
+        FREE_LOOK = reg("free_look", GLFW.GLFW_KEY_UNKNOWN);  // обычная клавиша управления: работает и на Android (Pojav)
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
     }
 
@@ -42,6 +45,7 @@ public final class KeyBinds {
             if (mc.currentScreen == null) mc.setScreen(new com.swinganimations.gui.ClickGuiScreen(null));
         }
         crosshairKeys(mc);
+        freeLookKey(mc);
         SwingConfig cfg = ConfigManager.get();
         while (TOGGLE.wasPressed()) {
             cfg.enabled = !cfg.enabled;
@@ -54,6 +58,30 @@ public final class KeyBinds {
             ConfigManager.save();
             message(mc, Text.translatable("swinganimations.msg.preset", cfg.activePreset));
         }
+    }
+
+    /**
+     * FreeLook через обычную клавишу управления (опрос состояния делает сама игра по событиям клавиатуры).
+     * Если у модуля есть свой бинд из ClickGUI, им занимается ModuleManager, а здесь только сбрасываем очередь нажатий.
+     */
+    private static void freeLookKey(MinecraftClient mc) {
+        com.swinganimations.module.FreeLookModule fl = com.swinganimations.module.ModuleManager.freeLook;
+        boolean down = FREE_LOOK.isPressed();
+        if (fl == null || fl.bindCode >= 0) {
+            while (FREE_LOOK.wasPressed()) { /* очередь нажатий */ }
+            freeLookDown = down;
+            return;
+        }
+        if (fl.holdBind()) {
+            while (FREE_LOOK.wasPressed()) { /* очередь нажатий */ }
+            if (down && !freeLookDown && mc.currentScreen == null && mc.player != null) fl.setEnabled(true);
+            else if (!down && freeLookDown) fl.setEnabled(false);
+        } else {
+            while (FREE_LOOK.wasPressed()) {
+                if (mc.currentScreen == null && mc.player != null) fl.toggle();
+            }
+        }
+        freeLookDown = down;
     }
 
     private static void crosshairKeys(MinecraftClient mc) {

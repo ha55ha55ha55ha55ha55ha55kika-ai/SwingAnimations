@@ -18,6 +18,7 @@ public final class ThemeModule extends Module {
     private final Setting.Mode font = add(new Setting.Mode("font", "HUD font", "Default", "Poppins"));
     private final Setting.Mode hudStyle = add(new Setting.Mode("hud_style", "HUD panels", "Normal", "Matte"));
     private final Setting.Bool blur = add(new Setting.Bool("blur", "ClickGUI background blur", true));
+    private final Setting.Bool mainMenu = add(new Setting.Bool("main_menu", "Custom main menu", true));
 
     public ThemeModule() {
         super("theme", "Theme", "hud");
@@ -48,6 +49,11 @@ public final class ThemeModule extends Module {
     public static boolean blur() {
         ThemeModule t = ModuleManager.theme;
         return t == null || t.blur.value;
+    }
+
+    public static boolean mainMenu() {
+        ThemeModule t = ModuleManager.theme;
+        return t == null || t.mainMenu.value;
     }
 
     public static boolean cleanFont() {

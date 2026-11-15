@@ -195,5 +195,10 @@
   "swinganimations.setting.custom_world.hue": "Hue",
   "swinganimations.setting.custom_world.sat": "Saturation",
   "swinganimations.setting.custom_world.strength": "Tint strength",
-  "swinganimations.setting.custom_world.preset": "Sky color"
+  "swinganimations.setting.custom_world.preset": "Sky color",
+  "key.swinganimations.free_look": "FreeLook",
+  "swinganimations.setting.target_hud.head": "Player head",
+  "swinganimations.setting.target_hud.scale": "Scale",
+  "swinganimations.setting.interface.effects_scale": "Effects scale",
+  "swinganimations.setting.theme.main_menu": "Custom main menu"
 }
