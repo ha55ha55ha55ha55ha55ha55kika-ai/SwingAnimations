@@ -17,6 +17,7 @@ public final class ThemeModule extends Module {
     private final Setting.Num blue = add(new Setting.Num("blue", "Blue", 255f, 0f, 255f, 1f).<Setting.Num>visibleWhen(this::custom));
     private final Setting.Mode font = add(new Setting.Mode("font", "HUD font", "Default", "Poppins"));
     private final Setting.Mode hudStyle = add(new Setting.Mode("hud_style", "HUD panels", "Normal", "Matte"));
+    private final Setting.Mode clickGui = add(new Setting.Mode("click_gui", "ClickGUI style", "New", "Classic"));
     private final Setting.Bool blur = add(new Setting.Bool("blur", "ClickGUI background blur", true));
     private final Setting.Bool mainMenu = add(new Setting.Bool("main_menu", "Custom main menu", true));
     private final Setting.Bool serverMenu = add(new Setting.Bool("server_menu", "Custom server menu", true));
@@ -61,6 +62,12 @@ public final class ThemeModule extends Module {
     public static boolean serverMenu() {
         ThemeModule t = ModuleManager.theme;
         return t == null || t.serverMenu.value;
+    }
+
+    /** true: новое ClickGUI (по умолчанию), false: старое, с панелями по категориям. */
+    public static boolean newClickGui() {
+        ThemeModule t = ModuleManager.theme;
+        return t == null || t.clickGui.is("New");
     }
 
     public static void setMainMenu(boolean v) {

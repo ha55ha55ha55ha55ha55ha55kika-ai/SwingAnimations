@@ -77,10 +77,10 @@ public final class MainMenuScreen extends Screen {
     private int nx, ny, nw, nh;
 
     private boolean guardCleared;
+    private boolean guardEntered;
 
     public MainMenuScreen() {
         super(Text.literal("SwingAnimations"));
-        com.swinganimations.util.MenuGuard.enter("main");
     }
 
     private static Identifier icon(String n) {
@@ -95,6 +95,10 @@ public final class MainMenuScreen extends Screen {
 
     @Override
     protected void init() {
+        if (!guardEntered) {
+            guardEntered = true;
+            com.swinganimations.util.MenuGuard.enter("main"); // маркер только когда экран реально открыт
+        }
         btns.clear();
         modalBtns.clear();
         int bw = Math.min(180, width - 24);
@@ -117,7 +121,7 @@ public final class MainMenuScreen extends Screen {
         btns.add(new Btn(x, y, bw, bh, tr("nickname", "Change nickname"), I_USER, this::openNick));
         y += bh + gap;
         btns.add(new Btn(x, y, bw, bh, tr("mod_settings", "Mod settings"), I_FLASK,
-                () -> client.setScreen(new ClickGuiScreen(this))));
+                () -> client.setScreen(ClickGuiScreen.create(this))));
         y += bh + gap;
         int half = (bw - gap) / 2;
         btns.add(new Btn(x, y, half, bh, tr("options", "Options"), I_KEYS,

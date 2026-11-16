@@ -342,14 +342,18 @@ public final class ClientLink {
                     JsonArray arr = root.getAsJsonArray();
                     int n = Math.min(arr.size(), 300);
                     for (int i = 0; i < n; i++) {
-                        JsonObject p = arr.get(i).getAsJsonObject();
-                        UUID id = UUID.fromString(p.get("uuid").getAsString());
-                        if (id.equals(me)) continue;
-                        String nm = p.has("name") ? p.get("name").getAsString() : "";
-                        int st = p.has("state") ? p.get("state").getAsInt() : 0;
-                        String tt = clean(p.has("title") ? p.get("title").getAsString() : "");
-                        String ar = clean(p.has("artist") ? p.get("artist").getAsString() : "");
-                        mc.execute(() -> store(id, nm, st, tt, ar));
+                        try {
+                            JsonObject p = arr.get(i).getAsJsonObject();
+                            UUID id = UUID.fromString(p.get("uuid").getAsString());
+                            if (id.equals(me)) continue;
+                            String nm = p.has("name") ? p.get("name").getAsString() : "";
+                            int st = p.has("state") ? p.get("state").getAsInt() : 0;
+                            String tt = clean(p.has("title") ? p.get("title").getAsString() : "");
+                            String ar = clean(p.has("artist") ? p.get("artist").getAsString() : "");
+                            mc.execute(() -> store(id, nm, st, tt, ar));
+                        } catch (RuntimeException badEntry) {
+                            // битая запись: пропускаем только её
+                        }
                     }
                 }
             } catch (Throwable t) {

@@ -24,11 +24,15 @@ import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.TntEntity;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.vehicle.AbstractMinecartEntity;
+import net.minecraft.entity.vehicle.ChestBoatEntity;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -71,6 +75,17 @@ public final class MinimapModule extends Module {
     private final Setting.Bool hostile = add(new Setting.Bool("hostile", "Hostile mobs", true));
     private final Setting.Bool passive = add(new Setting.Bool("passive", "Passive mobs", false));
     private final Setting.Bool items = add(new Setting.Bool("items", "Items", false));
+    private final Setting.Mode playersFilter = add(new Setting.Mode("players_filter", "Players shown", "All", "Friends only", "Enemies only"));
+    private final Setting.Bool chestCart = add(new Setting.Bool("chest_minecart", "Minecart with chest", true));
+    private final Setting.Bool hopperCart = add(new Setting.Bool("hopper_minecart", "Minecart with hopper", false));
+    private final Setting.Bool tntCart = add(new Setting.Bool("tnt_minecart", "Minecart with TNT", false));
+    private final Setting.Bool otherCart = add(new Setting.Bool("other_minecart", "Other minecarts", false));
+    private final Setting.Bool chestBoat = add(new Setting.Bool("chest_boat", "Boat with chest", true));
+    private final Setting.Bool primedTnt = add(new Setting.Bool("primed_tnt", "Lit TNT", false));
+    private final Setting.Bool highlightCarts = add(new Setting.Bool("highlight_carts", "Highlight chest carts and boats", true));
+    private final Setting.Bool cartEdge = add(new Setting.Bool("cart_edge", "Chest carts beyond range at the edge", true));
+    private final Setting.Bool cartDistance = add(new Setting.Bool("cart_distance", "Distance to chest carts and boats", true));
+    private final Setting.Num iconScale = add(new Setting.Num("icon_scale", "Icon scale", 1.25f, 1f, 2f, 0.25f));
     private final Setting.Bool waypoints = add(new Setting.Bool("waypoints", "Markers (events, death)", true));
     private final Setting.Bool compass = add(new Setting.Bool("compass", "Compass letters", true));
     private final Setting.Bool coords = add(new Setting.Bool("coords", "Coordinates", true));
@@ -87,6 +102,7 @@ public final class MinimapModule extends Module {
     private float builtRange = -1f;
     private boolean builtSmooth;
     private int ticks;
+    private double lastBuildX = Double.NaN, lastBuildZ = Double.NaN;
     private String biome = "";
 
     public MinimapModule() {
@@ -132,6 +148,11 @@ public final class MinimapModule extends Module {
         ClientPlayerEntity p = mc.player;
         if (p == null || mc.world == null) return;
         int every = Perf.quality() == 0 ? 4 : 8;
+        // В Нижнем мире на каждый пиксель до 48 шагов вниз по блокам: строим вдвое реже.
+        if (mc.world.getDimension().hasCeiling()) every *= 2;
+        // Стоим на месте: карта почти не меняется (только подгружаются чанки), хватает раза в 1,5 с.
+        double mdx = p.getX() - lastBuildX, mdz = p.getZ() - lastBuildZ;
+        if (!(mdx * mdx + mdz * mdz > 0.25)) every = Math.max(every, 30);
         if (++ticks >= every || Math.abs(range.value - builtRange) > 0.01f || tex == null) {
             ticks = 0;
             rebuild(mc);
@@ -151,6 +172,8 @@ public final class MinimapModule extends Module {
         float halfExtent = r * 1.45f + 4f;
         texPPB = (T / 2f) / halfExtent;
         builtRange = r;
+        lastBuildX = p.getX();
+        lastBuildZ = p.getZ();
         centerX = MathHelper.floor(p.getX());
         centerZ = MathHelper.floor(p.getZ());
         boolean ceiling = w.getDimension().hasCeiling();
@@ -466,28 +489,54 @@ public final class MinimapModule extends Module {
 
     private void drawEntities(DrawContext ctx, MinecraftClient mc, ClientPlayerEntity self, float td, double ppx, double ppz,
                               float cx, float cy, float r, boolean circle, boolean rot, float c, float s, float scale) {
-        if (!players.value && !hostile.value && !passive.value && !items.value) return;
+        boolean carts = chestCart.value || hopperCart.value || tntCart.value || otherCart.value || chestBoat.value || primedTnt.value;
+        if (!players.value && !hostile.value && !passive.value && !items.value && !carts) return;
         float rr = range.value;
-        int budget = 250;
+        long now = System.currentTimeMillis();
+        int budget = 300;
         for (Entity e : mc.world.getEntities()) {
-            if (e == self || e.isInvisible() || e.isSpectator() || e instanceof ArmorStandEntity) continue;
+            if (e == self || e.isSpectator()) continue;
             if (--budget < 0) break;
-            int col;
-            int dotSize;
-            if (e instanceof PlayerEntity pl) {
+            // 0 точка, 1 сундук-вагонетка, 2 воронка, 3 TNT-вагонетка, 4 другая вагонетка, 5 лодка с сундуком, 6 горящий TNT
+            int kind = 0;
+            int col = 0;
+            int dotSize = 2;
+            var type = e.getType();
+            if (type == EntityType.CHEST_MINECART) {
+                if (!chestCart.value) continue;
+                kind = 1;
+            } else if (type == EntityType.HOPPER_MINECART) {
+                if (!hopperCart.value) continue;
+                kind = 2;
+            } else if (type == EntityType.TNT_MINECART) {
+                if (!tntCart.value) continue;
+                kind = 3;
+            } else if (e instanceof AbstractMinecartEntity) {
+                if (!otherCart.value) continue;
+                kind = 4;
+            } else if (e instanceof ChestBoatEntity) {
+                if (!chestBoat.value) continue;
+                kind = 5;
+            } else if (e instanceof TntEntity) {
+                if (!primedTnt.value) continue;
+                kind = 6;
+            } else if (e.isInvisible() || e instanceof ArmorStandEntity) {
+                continue;
+            } else if (e instanceof PlayerEntity pl) {
                 if (!players.value) continue;
-                if (ModuleManager.entityEsp != null && ModuleManager.entityEsp.isFriend(pl.getName().getString())) col = DOT_FRIEND;
+                boolean friend = ModuleManager.entityEsp != null && ModuleManager.entityEsp.isFriend(pl.getName().getString());
+                if (playersFilter.is("Friends only") && !friend) continue;
+                if (playersFilter.is("Enemies only") && friend) continue;
+                if (friend) col = DOT_FRIEND;
                 else if (ClientLink.isLinked(pl.getUuid())) col = Ui.ACCENT & 0xFFFFFF;
                 else col = DOT_PLAYER[0];
                 dotSize = 3;
             } else if (e instanceof Monster) {
                 if (!hostile.value) continue;
                 col = DOT_HOSTILE;
-                dotSize = 2;
             } else if (e instanceof LivingEntity) {
                 if (!passive.value) continue;
                 col = DOT_PASSIVE;
-                dotSize = 2;
             } else if (e instanceof ItemEntity) {
                 if (!items.value) continue;
                 col = DOT_ITEM;
@@ -497,16 +546,73 @@ public final class MinimapModule extends Module {
             }
             var ep = e.getLerpedPos(td);
             double dx = ep.x - ppx, dz = ep.z - ppz;
-            if (dx * dx + dz * dz > (double) rr * rr) continue;
+            double dist2 = dx * dx + dz * dz;
             float[] o = toScreen(dx, dz, rot, c, s, scale);
-            float limit = r - 3f;
+            float limit = r - (kind == 0 ? 3f : 6f);
             float len = circle ? (float) Math.sqrt(o[0] * o[0] + o[1] * o[1]) : Math.max(Math.abs(o[0]), Math.abs(o[1]));
-            if (len > limit) continue;
+            boolean outside = dist2 > (double) rr * rr || len > limit;
+            if (outside) {
+                // сундуки на колёсах и лодки хочется видеть всегда: за пределами радиуса рисуем их на краю карты
+                if (cartEdge.value && (kind == 1 || kind == 5)) o = edge(o[0], o[1], limit, circle);
+                else continue;
+            }
             int px = Math.round(cx + o[0]);
             int py = Math.round(cy + o[1]);
-            int h = dotSize / 2;
-            ctx.fill(px - h - 1, py - h - 1, px - h + dotSize + 1, py - h + dotSize + 1, 0xAA000000);
-            ctx.fill(px - h, py - h, px - h + dotSize, py - h + dotSize, 0xFF000000 | col);
+            if (kind == 0) {
+                int h = dotSize / 2;
+                ctx.fill(px - h - 1, py - h - 1, px - h + dotSize + 1, py - h + dotSize + 1, 0xAA000000);
+                ctx.fill(px - h, py - h, px - h + dotSize, py - h + dotSize, 0xFF000000 | col);
+                continue;
+            }
+            drawIcon(ctx, kind, px, py, now);
+            if (cartDistance.value && (kind == 1 || kind == 5)) {
+                String t = Text.translatableWithFallback("swinganimations.minimap.dist", "%sm", Math.round(Math.sqrt(dist2))).getString();
+                int tw = Hud.w(t);
+                int tx = o[0] > r * 0.35f ? px - Math.round(7 * iconScale.value) - tw : px + Math.round(7 * iconScale.value);
+                Hud.text(ctx, t, tx, py - 4, 0xFFFFE066);
+            }
         }
+    }
+
+    /** Значки техники и сундуков 7x5 пикселей, масштабируются настройкой «Icon scale». */
+    private void drawIcon(DrawContext ctx, int kind, int px, int py, long now) {
+        var m = ctx.getMatrices();
+        m.push();
+        m.translate(px, py, 0f);
+        float sc = iconScale.value;
+        m.scale(sc, sc, 1f);
+        boolean chest = kind == 1 || kind == 5;
+        if (chest && highlightCarts.value) {
+            int a = 0x28 + (int) (0x48 * (0.5 + 0.5 * Math.sin(now / 260.0)));
+            ctx.fill(-6, -5, 7, 6, (a << 24) | 0xFFE066);
+        }
+        ctx.fill(-4, -3, 5, 4, 0xCC000000); // тёмная обводка
+        switch (kind) {
+            case 1 -> { // вагонетка с сундуком: коричневый сундук с защёлкой
+                ctx.fill(-3, -2, 4, 3, 0xFF9A6A32);
+                ctx.fill(-3, -2, 4, -1, 0xFFBA8A4C);
+                ctx.fill(-3, 0, 4, 1, 0xFF5E3C14);
+                ctx.fill(0, -1, 1, 2, 0xFFFFE066);
+            }
+            case 2 -> { // вагонетка с воронкой
+                ctx.fill(-3, -2, 4, 3, 0xFF6B7078);
+                ctx.fill(-1, -1, 2, 2, 0xFF2B2E33);
+            }
+            case 3 -> { // вагонетка с TNT
+                ctx.fill(-3, -2, 4, 3, 0xFFD13B3B);
+                ctx.fill(-3, 0, 4, 1, 0xFFF2F2F2);
+            }
+            case 4 -> ctx.fill(-3, -2, 4, 3, 0xFF8E96A3); // прочие вагонетки
+            case 5 -> { // лодка с сундуком: тёмный корпус и сундук сверху
+                ctx.fill(-3, -1, 4, 3, 0xFF5B4630);
+                ctx.fill(-1, -2, 2, 0, 0xFF9A6A32);
+                ctx.fill(0, -2, 1, -1, 0xFFFFE066);
+            }
+            default -> { // горящий TNT: мигает красным и белым
+                boolean on = (now / 160L) % 2L == 0L;
+                ctx.fill(-3, -2, 4, 3, on ? 0xFFF2F2F2 : 0xFFD13B3B);
+            }
+        }
+        m.pop();
     }
 }

@@ -60,7 +60,7 @@ public final class KeyBinds {
 
     private static void tick(MinecraftClient mc) {
         while (OPEN.wasPressed()) {
-            if (mc.currentScreen == null) mc.setScreen(new com.swinganimations.gui.ClickGuiScreen(null));
+            if (mc.currentScreen == null) mc.setScreen(com.swinganimations.gui.ClickGuiScreen.create(null));
         }
         crosshairKeys(mc);
         freeLookKey(mc);

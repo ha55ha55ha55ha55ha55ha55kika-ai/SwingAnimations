@@ -119,6 +119,7 @@ public final class ServersScreen extends Screen {
     private boolean pinged;
     private volatile boolean closed;
     private boolean guardCleared;
+    private boolean guardEntered;
     private int selected = -1;
     private float scroll, scrollTarget;
     private int wx, wy, ww, wh;
@@ -135,7 +136,6 @@ public final class ServersScreen extends Screen {
     public ServersScreen(Screen parent) {
         super(tr("servers.title", "Multiplayer"));
         this.parent = parent;
-        com.swinganimations.util.MenuGuard.enter("servers");
         this.serverList = new ServerList(MinecraftClient.getInstance());
         this.serverList.loadFile();
         reload();
@@ -193,6 +193,10 @@ public final class ServersScreen extends Screen {
     @Override
     protected void init() {
         closed = false; // экран может вернуться из ConnectScreen: пинг должен снова работать
+        if (!guardEntered) {
+            guardEntered = true;
+            com.swinganimations.util.MenuGuard.enter("servers"); // маркер только когда экран реально открыт
+        }
         ww = Math.min(width - 16, 340);
         wh = Math.min(height - 16, 262);
         wx = (width - ww) / 2;

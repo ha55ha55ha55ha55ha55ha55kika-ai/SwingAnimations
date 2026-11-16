@@ -42,9 +42,9 @@ public final class EventHudModule extends Module implements WaypointSource {
     private static final Pattern TWO = Pattern.compile("(-?\\d{2,7})\\D{1,12}?(-?\\d{2,7})");
     /** Сильный признак объявления ивента или координат. */
     private static final Pattern STRONG = Pattern.compile("(?i)ивент|event|коорд|coord|кординат|локаци|появил|начал|спавн");
-    /** Названия типов ивентов HolyWorld (на случай, если в строке нет слова «ивент»). */
     /** Сообщения о смерти (в том числе «вы погибли на координатах ...») никогда не считаются ивентом. */
     private static final Pattern DEATH = Pattern.compile("(?i)погиб|умер|смерт|скончал|убит|убил|воскрес|возрод|died|death|slain|you were killed|respawn");
+    /** Названия типов ивентов HolyWorld (на случай, если в строке нет слова «ивент»). */
     private static final Pattern NAMES = Pattern.compile("(?i)лихорад|корабл|груз|кубик|посылк|шахт|тыпо|полян|контейнер|крепост");
 
     private final Setting.Num server = add(new Setting.Num("server", "Anarchy number (0 = all)", 0f, 0f, (float) HolyWorldApi.MAX_ANARCHY, 1f));
@@ -71,6 +71,7 @@ public final class EventHudModule extends Module implements WaypointSource {
     /** Ивенты, для которых /event уже отправлялся (чтобы не спамить сервер). */
     private final Set<String> asked = new HashSet<>();
     private long lastCommandAt;
+    private long nextAskCheck;
     private long expectUntil;
     private int replyLog;
 
@@ -175,6 +176,8 @@ public final class EventHudModule extends Module implements WaypointSource {
     private void autoAsk(MinecraftClient mc) {
         long now = System.currentTimeMillis();
         if (now - lastCommandAt < (long) (commandCooldown.value * 1000L)) return;
+        if (now < nextAskCheck) return; // проверку списка ивентов делаем раз в 2 с, не каждый тик
+        nextAskCheck = now + 2000L;
         if (mc.getCurrentServerEntry() == null || mc.player == null || mc.player.getHealth() <= 0f) return;
         if (HolyWorldApi.updatedAt() == 0L) return;
         int a = effectiveAnarchy(mc);
@@ -263,11 +266,11 @@ public final class EventHudModule extends Module implements WaypointSource {
         if (raw == null || raw.length() > 600) return;
         boolean expecting = system && System.currentTimeMillis() < expectUntil;
         if (expecting && replyLog++ < 20 && debugChat.value) SwingAnimationsClient.LOGGER.info("EventHud reply: {}", raw);
-        if (DEATH.matcher(raw).find()) {
+        boolean named = mentionsKnownEvent(raw) || NAMES.matcher(raw).find();
+        if (!named && DEATH.matcher(raw).find()) { // «убит», «смерть» и т. п. без названия ивента: это не объявление
             if (debugChat.value) SwingAnimationsClient.LOGGER.info("EventHud chat (death, skipped): {}", raw);
             return;
         }
-        boolean named = mentionsKnownEvent(raw) || NAMES.matcher(raw).find();
         boolean strong = STRONG.matcher(raw).find();
         // Сразу после собственной смерти сервер присылает координаты места смерти: без названия ивента это не ивент.
         if (!named && com.swinganimations.util.DeathTracker.sinceDeathMs() < 20_000L) {

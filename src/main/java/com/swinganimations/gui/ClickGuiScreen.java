@@ -138,6 +138,11 @@ public class ClickGuiScreen extends Screen {
     private Text status;
     private int statusColor = GREEN;
 
+    /** Открывает ClickGUI выбранного в Theme стиля (новое или старое). */
+    public static Screen create(Screen parent) {
+        return ThemeModule.newClickGui() ? new ClickGuiScreen(parent) : new ClassicClickGuiScreen(parent);
+    }
+
     public ClickGuiScreen(Screen parent) {
         super(Text.translatable("swinganimations.title"));
         this.parent = parent;

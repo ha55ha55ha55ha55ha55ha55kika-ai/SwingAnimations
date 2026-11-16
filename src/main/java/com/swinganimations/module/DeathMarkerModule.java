@@ -97,8 +97,8 @@ public final class DeathMarkerModule extends Module implements WaypointSource {
             addMark(new Mark(d.x(), d.y(), d.z(), d.dim(), d.server(), d.at()));
             if (chatCoords.value) {
                 mc.inGameHud.getChatHud().addMessage(Text.literal("[DeathMarker] ").formatted(Formatting.RED)
-                        .append(Text.literal("Вы погибли: " + Math.round(d.x()) + " " + Math.round(d.y()) + " " + Math.round(d.z()))
-                                .formatted(Formatting.GRAY)));
+                        .append(Text.translatableWithFallback("swinganimations.death.chat", "You died at: %s %s %s",
+                                Math.round(d.x()), Math.round(d.y()), Math.round(d.z())).formatted(Formatting.GRAY)));
             }
         }
         long now = System.currentTimeMillis();
@@ -128,7 +128,7 @@ public final class DeathMarkerModule extends Module implements WaypointSource {
         long ttl = ttlMs();
         for (Mark k : marks) {
             if (now - k.created > ttl || !here(k, mc)) continue;
-            out.add(new Waypoint(k.x, k.y, k.z, "Смерть", rgb(), true));
+            out.add(new Waypoint(k.x, k.y, k.z, Text.translatableWithFallback("swinganimations.death.name", "Death").getString(), rgb(), true));
         }
         return out;
     }
@@ -198,7 +198,7 @@ public final class DeathMarkerModule extends Module implements WaypointSource {
             int px = Math.round(scr[0]);
             int py = Math.round(scr[1]);
             int d = Math.round((float) Projection.distance(k.x, k.y, k.z));
-            String text = "Смерть  " + d + " м";
+            String text = Text.translatableWithFallback("swinganimations.death.label", "Death  %s m", d).getString();
             if (timeLeft.value && ttl != Long.MAX_VALUE) {
                 long left = Math.max(0L, (ttl - (now - k.created)) / 1000L);
                 text += "  " + (left / 60L) + ":" + (left % 60L < 10L ? "0" : "") + (left % 60L);

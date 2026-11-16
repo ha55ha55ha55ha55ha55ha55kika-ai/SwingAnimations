@@ -35,6 +35,10 @@ public final class LinkPayloads {
                     buf.writeUuid(value.sender());
                     buf.writeBytes(value.body());
                 }, buf -> {
+                    if (buf.readableBytes() < 16) { // не наш формат: съедаем остаток и игнорируем
+                        buf.skipBytes(buf.readableBytes());
+                        return new Down(new UUID(0L, 0L), new byte[0]);
+                    }
                     UUID id = buf.readUuid();
                     byte[] b = new byte[buf.readableBytes()];
                     buf.readBytes(b);

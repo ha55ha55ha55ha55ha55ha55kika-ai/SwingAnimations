@@ -175,6 +175,15 @@ public final class MusicPlayer {
                     threadCtx = true;
                 }
             }
+            if (!threadCtx && cur != 0L) {
+                // Расширения нет, работаем в общем контексте игры: возможности AL нужны и этому потоку (иначе NPE),
+                // а свой контекст, созданный впустую, закрываем (раньше он утекал).
+                AL.createCapabilities(alcCaps);
+                if (ctx != 0L) {
+                    ALC10.alcDestroyContext(ctx);
+                    ctx = 0L;
+                }
+            }
             if (!threadCtx && cur == 0L) {
                 if (ctx == 0L) ctx = ALC10.alcCreateContext(dev, (IntBuffer) null);
                 ALC10.alcMakeContextCurrent(ctx);
