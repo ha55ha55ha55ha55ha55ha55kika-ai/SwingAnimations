@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
  * (маяк в мире и подпись с расстоянием). Формат строки с координатами заранее неизвестен, поэтому парсер терпимый
  * и пишет подходящие строки в лог с префиксом «EventHud chat:», чтобы их можно было прислать и уточнить.
  */
-public final class EventHudModule extends Module {
+public final class EventHudModule extends Module implements WaypointSource {
     private static final int ROWS = 6;
     private static final Pattern XYZ = Pattern.compile("(?i)x\\s*[:=]?\\s*(-?\\d+)\\D{0,8}?y\\s*[:=]?\\s*(-?\\d+)\\D{0,8}?z\\s*[:=]?\\s*(-?\\d+)");
     private static final Pattern XZ = Pattern.compile("(?i)x\\s*[:=]?\\s*(-?\\d+)\\D{0,12}?z\\s*[:=]?\\s*(-?\\d+)");
@@ -43,12 +43,17 @@ public final class EventHudModule extends Module {
     /** Сильный признак объявления ивента или координат. */
     private static final Pattern STRONG = Pattern.compile("(?i)ивент|event|коорд|coord|кординат|локаци|появил|начал|спавн");
     /** Названия типов ивентов HolyWorld (на случай, если в строке нет слова «ивент»). */
+    /** Сообщения о смерти (в том числе «вы погибли на координатах ...») никогда не считаются ивентом. */
+    private static final Pattern DEATH = Pattern.compile("(?i)погиб|умер|смерт|скончал|убит|убил|воскрес|возрод|died|death|slain|you were killed|respawn");
     private static final Pattern NAMES = Pattern.compile("(?i)лихорад|корабл|груз|кубик|посылк|шахт|тыпо|полян|контейнер|крепост");
 
     private final Setting.Num server = add(new Setting.Num("server", "Anarchy number (0 = all)", 0f, 0f, (float) HolyWorldApi.MAX_ANARCHY, 1f));
     private final Setting.Num rows = add(new Setting.Num("rows", "Rows", 6f, 3f, 10f, 1f));
     private final Setting.Bool autoMarker = add(new Setting.Bool("auto_marker", "Auto marker from chat", true));
     private final Setting.Num markerTtl = add(new Setting.Num("marker_ttl", "Marker lifetime (min)", 10f, 1f, 60f, 1f));
+    private final Setting.Bool autoCommand = add(new Setting.Bool("auto_command", "Auto /event to get coordinates", true));
+    private final Setting.Num commandCooldown = add(new Setting.Num("command_cooldown", "/event cooldown (s)", 45f, 15f, 300f, 5f));
+    private final Setting.Bool askNow = add(new Setting.Bool("ask_now", "Send /event now", false));
     private final Setting.Bool debugChat = add(new Setting.Bool("debug_chat", "Log chat lines with coords", true));
     private final Setting.Bool openSearch = add(new Setting.Bool("search", "Open anarchy search", false));
     private final Setting.Bool testMarker = add(new Setting.Bool("test_marker", "Test marker (8 blocks ahead)", false));
@@ -63,6 +68,11 @@ public final class EventHudModule extends Module {
     private long trackedAt;
     private final List<Marker> markers = new ArrayList<>();
     private final float[] scr = new float[2];
+    /** Ивенты, для которых /event уже отправлялся (чтобы не спамить сервер). */
+    private final Set<String> asked = new HashSet<>();
+    private long lastCommandAt;
+    private long expectUntil;
+    private int replyLog;
 
     private static final class Marker {
         final double x, y, z;
@@ -101,6 +111,7 @@ public final class EventHudModule extends Module {
     public void onDisable() {
         HolyWorldApi.stop();
         markers.clear();
+        asked.clear();
     }
 
     public void nextPage() {
@@ -130,6 +141,11 @@ public final class EventHudModule extends Module {
             openSearch.value = false;
             openSearch();
         }
+        if (askNow.value) {
+            askNow.value = false;
+            sendEventCommand(mc, "manual");
+        }
+        if (autoCommand.value) autoAsk(mc);
         if (testMarker.value) {
             testMarker.value = false;
             if (mc.player != null) {
@@ -137,6 +153,72 @@ public final class EventHudModule extends Module {
                 addMarker(mc.player.getX() + look.x * 8, mc.player.getY(), mc.player.getZ() + look.z * 8, "Тест", false);
             }
         }
+    }
+
+    // ---------------- авто /event ----------------
+
+    /** Анархия, на которой вы играете: определена по боковой панели, иначе выбранная вручную (0 = неизвестно). */
+    private int effectiveAnarchy(MinecraftClient mc) {
+        int d = com.swinganimations.util.AnarchyDetector.detect(mc);
+        return d > 0 ? d : (int) server.value;
+    }
+
+    private boolean hasMarker(String name) {
+        for (Marker k : markers) if (k.name.equals(name)) return true;
+        return false;
+    }
+
+    /**
+     * Если на вашей анархии идёт ивент, который мы ещё не «спрашивали», отправляет серверу /event, чтобы получить
+     * координаты (ответ разбирает onChat и ставит метку). Не чаще раза в «cooldown» секунд и один раз на ивент.
+     */
+    private void autoAsk(MinecraftClient mc) {
+        long now = System.currentTimeMillis();
+        if (now - lastCommandAt < (long) (commandCooldown.value * 1000L)) return;
+        if (mc.getCurrentServerEntry() == null || mc.player == null || mc.player.getHealth() <= 0f) return;
+        if (HolyWorldApi.updatedAt() == 0L) return;
+        int a = effectiveAnarchy(mc);
+        if (a <= 0) return;
+        Set<String> all = new HashSet<>();
+        boolean fresh = false;
+        for (HolyWorldApi.Event e : HolyWorldApi.latest()) {
+            String k = key(e);
+            all.add(k);
+            if (!HolyWorldApi.onAnarchy(e.server(), a)) continue;
+            if (!asked.contains(k) && !hasMarker(e.name())) fresh = true;
+        }
+        asked.retainAll(all);
+        if (!fresh) return;
+        for (HolyWorldApi.Event e : HolyWorldApi.latest()) {
+            if (HolyWorldApi.onAnarchy(e.server(), a)) asked.add(key(e));
+        }
+        sendEventCommand(mc, "auto, anarchy " + a);
+    }
+
+    private void sendEventCommand(MinecraftClient mc, String why) {
+        if (mc.player == null || mc.player.networkHandler == null) return;
+        long now = System.currentTimeMillis();
+        lastCommandAt = now;
+        expectUntil = now + 8000L;
+        replyLog = 0;
+        mc.player.networkHandler.sendChatCommand("event");
+        if (debugChat.value) SwingAnimationsClient.LOGGER.info("EventHud: sent /event ({})", why);
+    }
+
+    /** Если на вашей анархии ровно один ивент, берём его название для метки из ответа без названия. */
+    private String fallbackName(String name) {
+        if (!"Ивент".equals(name)) return name;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int a = effectiveAnarchy(mc);
+        String only = null;
+        int count = 0;
+        for (HolyWorldApi.Event e : HolyWorldApi.latest()) {
+            if (a > 0 && HolyWorldApi.onAnarchy(e.server(), a)) {
+                only = e.name();
+                count++;
+            }
+        }
+        return count == 1 ? only : name;
     }
 
     /** Число ивентов по анархиям 1..36; best[n] = лучший ранг редкости (0 нет, 1 обычный ... 4 легендарный). */
@@ -179,9 +261,22 @@ public final class EventHudModule extends Module {
      */
     void onChat(String raw, boolean system) {
         if (raw == null || raw.length() > 600) return;
+        boolean expecting = system && System.currentTimeMillis() < expectUntil;
+        if (expecting && replyLog++ < 20 && debugChat.value) SwingAnimationsClient.LOGGER.info("EventHud reply: {}", raw);
+        if (DEATH.matcher(raw).find()) {
+            if (debugChat.value) SwingAnimationsClient.LOGGER.info("EventHud chat (death, skipped): {}", raw);
+            return;
+        }
         boolean named = mentionsKnownEvent(raw) || NAMES.matcher(raw).find();
         boolean strong = STRONG.matcher(raw).find();
-        if (!strong && !named) return;
+        // Сразу после собственной смерти сервер присылает координаты места смерти: без названия ивента это не ивент.
+        if (!named && com.swinganimations.util.DeathTracker.sinceDeathMs() < 20_000L) {
+            if (debugChat.value && strong) SwingAnimationsClient.LOGGER.info("EventHud chat (after death, skipped): {}", raw);
+            return;
+        }
+        // Ответ на наш /event: строка с подписанными координатами подходит и без слов «ивент»/«координаты».
+        boolean labeled = expecting && (XYZ.matcher(raw).find() || XZ.matcher(raw).find());
+        if (!strong && !named && !labeled) return;
         // Обычный игровой чат пропускаем, если в нём нет названия ивента: иначе «ивент 100 200» от игрока ставил бы метку.
         if (!system && !named) return;
         double x, y, z;
@@ -215,7 +310,7 @@ public final class EventHudModule extends Module {
         }
         if (debugChat.value) SwingAnimationsClient.LOGGER.info("EventHud chat: {}", raw);
         if (!autoMarker.value) return;
-        addMarker(x + 0.5, y, z + 0.5, currentEventName(raw), tall);
+        addMarker(x + 0.5, y, z + 0.5, fallbackName(currentEventName(raw)), tall);
     }
 
     private static boolean inRange(int y) { return y >= -64 && y <= 320; }
@@ -235,7 +330,7 @@ public final class EventHudModule extends Module {
     private void addMarker(double x, double y, double z, String name, boolean tall) {
         markers.removeIf(k -> k.name.equals(name));
         markers.add(new Marker(x, y, z, name, System.currentTimeMillis(), tall));
-        while (markers.size() > 3) markers.remove(0);
+        while (markers.size() > 5) markers.remove(0);
     }
 
     /** Название берём из текущего списка API: если в строке упомянут ивент, то его, иначе «Ивент». */
@@ -244,6 +339,17 @@ public final class EventHudModule extends Module {
             if (raw.contains(e.name())) return e.name();
         }
         return "Ивент";
+    }
+
+    @Override
+    public List<WaypointSource.Waypoint> waypoints() {
+        long now = System.currentTimeMillis();
+        long ttl = (long) (markerTtl.value * 60_000L);
+        List<WaypointSource.Waypoint> out = new ArrayList<>();
+        for (Marker k : markers) {
+            if (now - k.created <= ttl) out.add(new WaypointSource.Waypoint(k.x, k.y, k.z, k.name, Ui.ACCENT & 0xFFFFFF, false));
+        }
+        return out;
     }
 
     @Override
