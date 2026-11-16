@@ -63,6 +63,22 @@ public final class ThemeModule extends Module {
         return t == null || t.serverMenu.value;
     }
 
+    public static void setMainMenu(boolean v) {
+        ThemeModule t = ModuleManager.theme;
+        if (t != null) {
+            t.mainMenu.value = v;
+            ModuleManager.save();
+        }
+    }
+
+    public static void setServerMenu(boolean v) {
+        ThemeModule t = ModuleManager.theme;
+        if (t != null) {
+            t.serverMenu.value = v;
+            ModuleManager.save();
+        }
+    }
+
     public static boolean cleanFont() {
         ThemeModule t = ModuleManager.theme;
         return t != null && t.font.is("Poppins");

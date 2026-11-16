@@ -51,6 +51,8 @@ public final class ModuleManager {
     public static EventHudModule eventHud;
     public static MusicModule music;
     public static ClientLinkModule clientLink;
+    public static DeathMarkerModule deathMarker;
+    public static MinimapModule minimap;
     private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
     private static final int MAX_RENDER_ERRORS = 5;
 
@@ -120,6 +122,10 @@ public final class ModuleManager {
         itemScroller = new ItemScrollerModule();
         MODULES.add(itemScroller);
         MODULES.add(new SwingModule());
+        deathMarker = new DeathMarkerModule();
+        MODULES.add(deathMarker);
+        minimap = new MinimapModule();
+        MODULES.add(minimap);
         com.swinganimations.gui.HudLayout.load();
         ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
             if (!(screen instanceof ChatScreen)) return;
@@ -137,6 +143,7 @@ public final class ModuleManager {
     }
 
     private static void tick(MinecraftClient mc) {
+        com.swinganimations.util.DeathTracker.tick(mc);
         boolean noScreen = mc.currentScreen == null;
         long handle = mc.getWindow() != null ? mc.getWindow().getHandle() : 0L;
         for (Module m : MODULES) {
