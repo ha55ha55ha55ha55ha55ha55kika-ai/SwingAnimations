@@ -76,11 +76,8 @@ public final class MainMenuScreen extends Screen {
     private int nickMsgColor = 0xFFFF8A8A;
     private int nx, ny, nw, nh;
 
-    private boolean guardCleared;
-
     public MainMenuScreen() {
         super(Text.literal("SwingAnimations"));
-        com.swinganimations.util.MenuGuard.enter("main");
     }
 
     private static Identifier icon(String n) {
@@ -124,13 +121,6 @@ public final class MainMenuScreen extends Screen {
                 () -> client.setScreen(new OptionsScreen(this, client.options))));
         btns.add(new Btn(x + half + gap, y, bw - half - gap, bh, tr("quit", "Quit"), I_SPEED,
                 () -> client.scheduleStop()));
-
-        // «Classic menu»: вернуться к ванильному главному меню (кнопка «Swing menu» там вернёт это)
-        Text classic = tr("classic", "Classic menu");
-        btns.add(new Btn(8, 8, Hud.w(classic) + 36, 22, classic, I_KEYS, () -> {
-            ThemeModule.setMainMenu(false);
-            client.setScreen(new TitleScreen());
-        }));
 
         chipH = 24;
         chipW = 100;
@@ -193,10 +183,6 @@ public final class MainMenuScreen extends Screen {
     public void render(DrawContext ctx, int mx, int my, float delta) {
         try {
             draw(ctx, mx, my, delta);
-            if (!guardCleared) {
-                guardCleared = true;
-                com.swinganimations.util.MenuGuard.ok("main");
-            }
         } catch (Throwable t) {
             failed = true;
             SwingAnimationsClient.LOGGER.error("Главное меню упало, возвращаю ванильное", t);

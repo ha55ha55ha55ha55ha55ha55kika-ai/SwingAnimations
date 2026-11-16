@@ -154,7 +154,6 @@ public final class ClientLink {
     }
 
     private static boolean containsWord(String s, String w) {
-        if (w == null || w.isEmpty()) return false; // пустое слово давало бесконечный цикл
         int from = 0;
         while (true) {
             int i = s.indexOf(w, from);

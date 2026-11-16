@@ -32,8 +32,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -45,17 +43,6 @@ import java.util.function.BooleanSupplier;
 public final class ServersScreen extends Screen {
     /** true: меню упало, дальше показываем ванильное. */
     public static boolean failed;
-
-    /**
-     * Пинг серверов в фоне, как в ванили. MultiplayerServerListPinger.add() внутри разрешает адрес через DNS
-     * в вызывающем потоке; если звать его из потока отрисовки, игра замирает на время DNS-запросов
-     * (на телефонах и при недоступных серверах это секунды на каждый сервер).
-     */
-    private static final ExecutorService PING_POOL = Executors.newFixedThreadPool(4, r -> {
-        Thread t = new Thread(r, "Swing Server Pinger");
-        t.setDaemon(true);
-        return t;
-    });
 
     private static String lastDirect = "";
     private static int iconCounter;
@@ -117,8 +104,6 @@ public final class ServersScreen extends Screen {
 
     private Btn refreshBtn;
     private boolean pinged;
-    private volatile boolean closed;
-    private boolean guardCleared;
     private int selected = -1;
     private float scroll, scrollTarget;
     private int wx, wy, ww, wh;
@@ -135,7 +120,6 @@ public final class ServersScreen extends Screen {
     public ServersScreen(Screen parent) {
         super(tr("servers.title", "Multiplayer"));
         this.parent = parent;
-        com.swinganimations.util.MenuGuard.enter("servers");
         this.serverList = new ServerList(MinecraftClient.getInstance());
         this.serverList.loadFile();
         reload();
@@ -163,16 +147,12 @@ public final class ServersScreen extends Screen {
     private void ping(ServerInfo s) {
         s.ping = 0L;
         pingStart.put(s, System.currentTimeMillis());
-        PING_POOL.execute(() -> {
-            if (closed) return;
-            try {
-                pinger.add(s, () -> MinecraftClient.getInstance().execute(serverList::saveFile), () -> { });
-            } catch (Throwable e) {
-                s.label = Text.translatable("multiplayer.status.cannot_resolve");
-                s.ping = -1L;
-            }
-            if (closed) pinger.cancel();
-        });
+        try {
+            pinger.add(s, () -> MinecraftClient.getInstance().execute(serverList::saveFile), () -> { });
+        } catch (Exception e) {
+            s.label = Text.translatable("multiplayer.status.cannot_resolve");
+            s.ping = -1L;
+        }
     }
 
     private State state(ServerInfo s) {
@@ -192,7 +172,6 @@ public final class ServersScreen extends Screen {
 
     @Override
     protected void init() {
-        closed = false; // экран может вернуться из ConnectScreen: пинг должен снова работать
         ww = Math.min(width - 16, 340);
         wh = Math.min(height - 16, 262);
         wx = (width - ww) / 2;
@@ -215,9 +194,6 @@ public final class ServersScreen extends Screen {
         Text rl = tr("servers.refresh", "Refresh");
         int rw = Hud.w(rl) + 20;
         refreshBtn = place(new Btn(rl, 0, null, this::refresh), wx + ww - PAD - rw, wy + 13, rw, 18);
-        Text cl = tr("servers.classic", "Classic menu");
-        int cw = Hud.w(cl) + 20;
-        btns.add(place(new Btn(cl, 0, null, this::switchToClassic), refreshBtn.x - 6 - cw, wy + 13, cw, 18));
 
         if (!pinged) {
             pinged = true;
@@ -256,12 +232,6 @@ public final class ServersScreen extends Screen {
 
     private void click() {
         if (client != null) client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 0.6f));
-    }
-
-    /** Переключение на ванильный список серверов (выбор запоминается, вернуть можно кнопкой «Swing menu»). */
-    private void switchToClassic() {
-        ThemeModule.setServerMenu(false);
-        if (client != null) client.setScreen(new MultiplayerScreen(parent));
     }
 
     private void refresh() {
@@ -423,10 +393,6 @@ public final class ServersScreen extends Screen {
     public void render(DrawContext ctx, int mx, int my, float delta) {
         try {
             draw(ctx, mx, my);
-            if (!guardCleared) {
-                guardCleared = true; // первый кадр нарисован без зависания: маркер защиты больше не нужен
-                com.swinganimations.util.MenuGuard.ok("servers");
-            }
         } catch (Throwable t) {
             failed = true;
             SwingAnimationsClient.LOGGER.error("Меню серверов упало, возвращаю ванильное", t);
@@ -732,8 +698,6 @@ public final class ServersScreen extends Screen {
 
     @Override
     public void removed() {
-        closed = true;
-        com.swinganimations.util.MenuGuard.ok("servers");
         pinger.cancel();
         pinged = false;
         serverList.saveFile();

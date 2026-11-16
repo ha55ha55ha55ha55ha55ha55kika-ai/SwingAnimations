@@ -27,8 +27,6 @@ public final class KeyBinds {
     public static KeyBinding MUSIC_PAUSE;
     public static KeyBinding MUSIC_NEXT;
     public static KeyBinding MUSIC_PREV;
-    public static KeyBinding MINIMAP_ZOOM_IN;
-    public static KeyBinding MINIMAP_ZOOM_OUT;
     private static boolean freeLookDown;
 
     private KeyBinds() {}
@@ -47,8 +45,6 @@ public final class KeyBinds {
         MUSIC_PAUSE = reg("music_pause", GLFW.GLFW_KEY_UNKNOWN);
         MUSIC_NEXT = reg("music_next", GLFW.GLFW_KEY_UNKNOWN);
         MUSIC_PREV = reg("music_prev", GLFW.GLFW_KEY_UNKNOWN);
-        MINIMAP_ZOOM_IN = reg("minimap_zoom_in", GLFW.GLFW_KEY_RIGHT_BRACKET);
-        MINIMAP_ZOOM_OUT = reg("minimap_zoom_out", GLFW.GLFW_KEY_LEFT_BRACKET);
         FREE_LOOK = reg("free_look", GLFW.GLFW_KEY_UNKNOWN);  // обычная клавиша управления: работает и на Android (Pojav)
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
     }
@@ -74,7 +70,6 @@ public final class KeyBinds {
             if (ev != null && mc.currentScreen == null) ev.openSearch();
         }
         musicKeys(mc);
-        minimapKeys();
         SwingConfig cfg = ConfigManager.get();
         while (TOGGLE.wasPressed()) {
             cfg.enabled = !cfg.enabled;
@@ -141,16 +136,6 @@ public final class KeyBinds {
             if (c == null) continue;
             if (!c.isEnabled()) c.setEnabled(true);
             message(mc, Text.literal("Crosshair color: " + c.nextColor()));
-        }
-    }
-
-    private static void minimapKeys() {
-        com.swinganimations.module.MinimapModule mm = com.swinganimations.module.ModuleManager.minimap;
-        while (MINIMAP_ZOOM_IN.wasPressed()) {
-            if (mm != null && mm.isEnabled()) mm.zoom(-8f);
-        }
-        while (MINIMAP_ZOOM_OUT.wasPressed()) {
-            if (mm != null && mm.isEnabled()) mm.zoom(8f);
         }
     }
 

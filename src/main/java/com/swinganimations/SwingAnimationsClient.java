@@ -15,8 +15,6 @@ public final class SwingAnimationsClient implements ClientModInitializer {
         ConfigManager.load();
         com.swinganimations.module.ModuleManager.init();
         KeyBinds.register();
-        com.swinganimations.util.MenuGuard.checkAtStartup(); // если прошлый запуск завис на кастомном меню, оно отключается
-        com.swinganimations.gui.MenuSwitch.init();
         LOGGER.info("SwingAnimations initialized (client-only, visual-only).");
     }
 }
