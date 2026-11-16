@@ -260,5 +260,8 @@
   "swinganimations.servers.address_hint": "Server address",
   "swinganimations.servers.need_address": "Enter a server address",
   "swinganimations.servers.apply": "Apply",
-  "swinganimations.servers.cancel": "Cancel"
+  "swinganimations.servers.cancel": "Cancel",
+  "swinganimations.servers.classic": "Classic menu",
+  "swinganimations.menu.classic": "Classic menu",
+  "swinganimations.menu.swing_menu": "Swing menu"
 }

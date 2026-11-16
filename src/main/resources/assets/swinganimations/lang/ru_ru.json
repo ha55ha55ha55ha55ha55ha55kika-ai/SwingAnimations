@@ -335,5 +335,8 @@
   "swinganimations.servers.address_hint": "Адрес сервера",
   "swinganimations.servers.need_address": "Введите адрес сервера",
   "swinganimations.servers.apply": "Применить",
-  "swinganimations.servers.cancel": "Отмена"
+  "swinganimations.servers.cancel": "Отмена",
+  "swinganimations.servers.classic": "Классическое меню",
+  "swinganimations.menu.classic": "Классическое меню",
+  "swinganimations.menu.swing_menu": "Меню Swing"
 }
