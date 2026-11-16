@@ -26,7 +26,7 @@ public final class Ui {
         return MinecraftClient.getInstance().textRenderer;
     }
 
-    private static final int[][] INSETS = new int[9][];
+    private static final int[][] INSETS = new int[17][];
 
     /** Сдвиг по X для каждой строки угла радиуса r (считается один раз, без sqrt в кадре). */
     private static int[] insets(int r) {
@@ -42,10 +42,10 @@ public final class Ui {
         return t;
     }
 
-    /** Скруглённый прямоугольник: строки с одинаковым сдвигом склеены в один fill (радиус до 8). */
+    /** Скруглённый прямоугольник: строки с одинаковым сдвигом склеены в один fill (радиус до 16). */
     public static void rect(DrawContext c, int x, int y, int w, int h, int r, int color) {
         if (w <= 0 || h <= 0) return;
-        r = Math.min(8, Math.min(r, Math.min(w, h) / 2));
+        r = Math.min(16, Math.min(r, Math.min(w, h) / 2));
         if (r <= 0) {
             c.fill(x, y, x + w, y + h, color);
             return;
@@ -66,7 +66,7 @@ public final class Ui {
 
     /** Тонкая скруглённая обводка (вертикальные куски угла склеены). */
     public static void outline(DrawContext c, int x, int y, int w, int h, int r, int color) {
-        r = Math.min(8, Math.min(r, Math.min(w, h) / 2));
+        r = Math.min(16, Math.min(r, Math.min(w, h) / 2));
         c.fill(x + r, y, x + w - r, y + 1, color);
         c.fill(x + r, y + h - 1, x + w - r, y + h, color);
         c.fill(x, y + r, x + 1, y + h - r, color);
@@ -84,6 +84,19 @@ public final class Ui {
             c.fill(x + w - v - 1, y + h - e, x + w - v, y + h - s, color);
             s = e;
         }
+    }
+
+    /** Мягкая тень под окном: несколько расширяющихся почти прозрачных плашек (без шейдеров и размытия). */
+    public static void shadow(DrawContext c, int x, int y, int w, int h, int r) {
+        for (int i = 1; i <= 5; i++) {
+            rect(c, x - i, y - i + 3, w + i * 2, h + i * 2, r + i, (0x0E - i * 2 > 0 ? 0x0E - i * 2 : 1) << 24);
+        }
+    }
+
+    /** Цвет c с альфой, умноженной на k (0..1). */
+    public static int fade(int argb, float k) {
+        int a = (int) (((argb >>> 24) & 0xFF) * Math.max(0f, Math.min(1f, k)));
+        return (a << 24) | (argb & 0xFFFFFF);
     }
 
     public static void text(DrawContext c, Text t, int x, int y, int color) {

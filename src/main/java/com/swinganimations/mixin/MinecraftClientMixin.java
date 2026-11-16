@@ -1,12 +1,14 @@
 package com.swinganimations.mixin;
 
 import com.swinganimations.gui.MainMenuScreen;
+import com.swinganimations.gui.ServersScreen;
 import com.swinganimations.module.ModuleManager;
 import com.swinganimations.module.RemovalsModule;
 import com.swinganimations.module.ThemeModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Removals: тени от блоков (ambient occlusion). Действует при следующей перестройке чанков (модуль делает её сам).
- * Главное меню: ванильный TitleScreen заменяется на MainMenuScreen (если включено в Theme). require = 0: при другой сигнатуре
+ * Главное меню: ванильный TitleScreen заменяется на MainMenuScreen, а MultiplayerScreen на ServersScreen (если включено в Theme). require = 0: при другой сигнатуре
  * просто остаётся ванильное меню.
  */
 @Mixin(MinecraftClient.class)
@@ -34,6 +36,16 @@ public abstract class MinecraftClientMixin {
             }
         } catch (Throwable t) {
             MainMenuScreen.failed = true;
+        }
+        try {
+            if (screen != null && screen.getClass() == MultiplayerScreen.class && !ServersScreen.failed && ThemeModule.serverMenu()) {
+                // «Назад» ведёт на экран, с которого открыли список; если это не меню (например, после отключения) — на заглавное
+                Screen cur = MinecraftClient.getInstance().currentScreen;
+                Screen back = (cur instanceof TitleScreen || cur instanceof MainMenuScreen) ? cur : new TitleScreen();
+                return new ServersScreen(back);
+            }
+        } catch (Throwable t) {
+            ServersScreen.failed = true;
         }
         return screen;
     }

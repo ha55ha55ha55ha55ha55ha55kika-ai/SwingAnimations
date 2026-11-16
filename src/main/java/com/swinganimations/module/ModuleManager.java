@@ -222,21 +222,68 @@ public final class ModuleManager {
         return FabricLoader.getInstance().getConfigDir().resolve("swinganimations_modules.json");
     }
 
+    private static Map<String, Saved> snapshot() {
+        Map<String, Saved> out = new LinkedHashMap<>();
+        for (Module m : MODULES) {
+            Saved s = new Saved();
+            s.enabled = m.isEnabled();
+            s.bind = m.bindCode;
+            s.mouse = m.bindMouse;
+            for (Setting st : m.settings) s.values.put(st.id, st.serialize());
+            out.put(m.id, s);
+        }
+        return out;
+    }
+
+    /**
+     * Применяет сохранённое состояние. full = false (запуск игры): модули только включаются;
+     * full = true (загрузка конфига): модули, выключенные в конфиге, ещё и выключаются.
+     */
+    private static void apply(Map<String, Saved> in, boolean full) {
+        for (Module m : MODULES) {
+            Saved s = in.get(m.id);
+            if (s == null) continue;
+            m.bindCode = s.bind;
+            m.bindMouse = s.mouse;
+            if (s.values != null) {
+                for (Setting st : m.settings) {
+                    String v = s.values.get(st.id);
+                    if (v != null) st.deserialize(v);
+                }
+            }
+            if ("swing".equals(m.id)) continue;
+            boolean want = s.enabled && m.restoreOnLoad();
+            if (want) m.setEnabled(true);
+            else if (full) m.setEnabled(false);
+        }
+    }
+
+    /** Текущее состояние всех модулей как JSON (для пользовательских конфигов). */
+    public static String exportJson() {
+        return GSON.toJson(snapshot());
+    }
+
+    /** Загружает состояние модулей из JSON конфига. false: файл повреждён, ничего не изменено. */
+    public static boolean importJson(String json) {
+        try {
+            Type type = new TypeToken<Map<String, Saved>>() { }.getType();
+            Map<String, Saved> in = GSON.fromJson(json, type);
+            if (in == null || in.isEmpty()) return false;
+            apply(in, true);
+            save();
+            return true;
+        } catch (RuntimeException e) {
+            SwingAnimationsClient.LOGGER.warn("Не удалось загрузить конфиг: {}", e.toString());
+            return false;
+        }
+    }
+
     public static void save() {
         try {
-            Map<String, Saved> out = new LinkedHashMap<>();
-            for (Module m : MODULES) {
-                Saved s = new Saved();
-                s.enabled = m.isEnabled();
-                s.bind = m.bindCode;
-                s.mouse = m.bindMouse;
-                for (Setting st : m.settings) s.values.put(st.id, st.serialize());
-                out.put(m.id, s);
-            }
             Path p = path();
             Path tmp = p.resolveSibling("swinganimations_modules.json.tmp");
             Files.createDirectories(p.getParent());
-            Files.writeString(tmp, GSON.toJson(out), StandardCharsets.UTF_8);
+            Files.writeString(tmp, GSON.toJson(snapshot()), StandardCharsets.UTF_8);
             Files.move(tmp, p, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException | RuntimeException e) {
             SwingAnimationsClient.LOGGER.warn("Не удалось сохранить модули: {}", e.toString());
@@ -250,19 +297,7 @@ public final class ModuleManager {
             Type type = new TypeToken<Map<String, Saved>>() { }.getType();
             Map<String, Saved> in = GSON.fromJson(r, type);
             if (in == null) return;
-            for (Module m : MODULES) {
-                Saved s = in.get(m.id);
-                if (s == null) continue;
-                m.bindCode = s.bind;
-                m.bindMouse = s.mouse;
-                if (s.values != null) {
-                    for (Setting st : m.settings) {
-                        String v = s.values.get(st.id);
-                        if (v != null) st.deserialize(v);
-                    }
-                }
-                if (!"swing".equals(m.id) && s.enabled && m.restoreOnLoad()) m.setEnabled(true);
-            }
+            apply(in, false);
         } catch (Exception e) {
             SwingAnimationsClient.LOGGER.warn("Повреждён swinganimations_modules.json ({}), использую значения по умолчанию", e.toString());
             try {

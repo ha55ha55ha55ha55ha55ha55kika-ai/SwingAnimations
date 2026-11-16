@@ -19,9 +19,11 @@ public final class ThemeModule extends Module {
     private final Setting.Mode hudStyle = add(new Setting.Mode("hud_style", "HUD panels", "Normal", "Matte"));
     private final Setting.Bool blur = add(new Setting.Bool("blur", "ClickGUI background blur", true));
     private final Setting.Bool mainMenu = add(new Setting.Bool("main_menu", "Custom main menu", true));
+    private final Setting.Bool serverMenu = add(new Setting.Bool("server_menu", "Custom server menu", true));
 
     public ThemeModule() {
         super("theme", "Theme", "hud");
+        preset.index = 5; // Crimson по умолчанию (сохранённый выбор пользователя перезапишет это при загрузке)
     }
 
     @Override public boolean isEnabled() { return true; }
@@ -54,6 +56,11 @@ public final class ThemeModule extends Module {
     public static boolean mainMenu() {
         ThemeModule t = ModuleManager.theme;
         return t == null || t.mainMenu.value;
+    }
+
+    public static boolean serverMenu() {
+        ThemeModule t = ModuleManager.theme;
+        return t == null || t.serverMenu.value;
     }
 
     public static boolean cleanFont() {
