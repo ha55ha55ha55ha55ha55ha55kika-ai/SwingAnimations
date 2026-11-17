@@ -87,6 +87,17 @@ public final class SpawnerSearchModule extends Module {
             if (i.enchants.isEmpty()) lines.add(Text.literal("  без зачарований").formatted(Formatting.DARK_GRAY));
             for (SpawnerInfo.Ench e : i.enchants) lines.add(Text.literal("  ").append(e.text().copy().formatted(Formatting.LIGHT_PURPLE)));
         }
+        if (i.killsTotal > 0L) {
+            long killed = Math.max(0L, Math.min(i.killsTotal, i.killsTotal - i.killsRemaining));
+            int pct = (int) Math.round(killed * 100.0 / i.killsTotal);
+            lines.add(Text.literal(" Убито: ").formatted(Formatting.GRAY)
+                    .append(Text.literal(spaced(killed) + " / " + spaced(i.killsTotal) + " (" + pct + "%)").formatted(Formatting.YELLOW)));
+        }
+        if (i.eggs > 0) lines.add(Text.literal(" Яиц вставлено: ").formatted(Formatting.GRAY).append(Text.literal(String.valueOf(i.eggs)).formatted(Formatting.YELLOW)));
+    }
+
+    private static String spaced(long n) {
+        return String.format(java.util.Locale.ROOT, "%,d", n).replace(',', ' ');
     }
 
     // ---------------- фильтр (им управляет панель) ----------------

@@ -49,6 +49,10 @@ public final class SpawnerInfo {
     /** id меча (minecraft:netherite_sword), либо null. */
     public final String swordId;
     public final List<Ench> enchants;
+    /** Статистика кастомного спавнера (формат HolyWorld): сколько мобов убито, сколько нужно, сколько яиц вставлено. */
+    public long killsTotal;
+    public long killsRemaining;
+    public int eggs;
 
     /** label != null: серверное (нестандартное) зачарование, показывается под своим названием. */
     public record Ench(String id, int level, String label) {
@@ -143,12 +147,17 @@ public final class SpawnerInfo {
         final List<String> spawnerLore = new ArrayList<>();
         /** Уровни серверных зачарований, найденные в custom_data по ключам. */
         final Map<String, Integer> customLevels = new java.util.HashMap<>();
+        long killsTotal;
+        long killsRemaining;
+        int eggs;
     }
 
     private static SpawnerInfo parse(ItemStack stack) {
         if (!looksLikeSpawner(stack)) return NONE;
         Acc a = new Acc();
         NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        // Сначала точный формат спавнера HolyWorld (gs_sword_item): иначе общий поиск находит меч по полю type, но не его чары.
+        if (custom != null) readHolyWorld(custom.copyNbt(), a);
         if (custom != null) scan(custom.copyNbt(), a, 0, "");
         NbtComponent bed = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
         if (bed != null) scan(bed.copyNbt(), a, 0, "");
@@ -170,7 +179,74 @@ public final class SpawnerInfo {
             if (id != null && Registries.ITEM.containsId(id)) swordName = Registries.ITEM.get(id).getName().getString();
         }
         if (mobName == null && swordName == null) return NONE;
-        return new SpawnerInfo(mobName, a.mobId, swordName, swordName == null ? null : a.swordId, a.enchants);
+        SpawnerInfo info = new SpawnerInfo(mobName, a.mobId, swordName, swordName == null ? null : a.swordId, a.enchants);
+        info.killsTotal = a.killsTotal;
+        info.killsRemaining = a.killsRemaining;
+        info.eggs = a.eggs;
+        return info;
+    }
+
+    // ---------------- формат спавнера HolyWorld ----------------
+
+    /**
+     * Данные лежат в custom_data: gs_marker (признак), gs_sword_item (JSON-строка меча: type, name, enchants {id: уровень}),
+     * gs_mob_type (например MAGMA_CUBE), gs_kills_total / gs_kills_remaining, gs_total_eggs.
+     */
+    private static void readHolyWorld(NbtCompound nbt, Acc a) {
+        if (!nbt.contains("gs_marker") && !nbt.contains("gs_sword_item")) return;
+        if (nbt.contains("gs_mob_type")) a.mobId = normalizeEntity(nbt.getString("gs_mob_type"));
+        a.killsTotal = nbt.getLong("gs_kills_total");
+        a.killsRemaining = nbt.getLong("gs_kills_remaining");
+        a.eggs = nbt.getInt("gs_total_eggs");
+        String raw = nbt.getString("gs_sword_item");
+        if (raw == null || raw.isBlank()) return;
+        JsonObject sword;
+        try {
+            sword = JsonParser.parseString(raw).getAsJsonObject();
+        } catch (Throwable e) {
+            return;
+        }
+        JsonElement type = sword.get("type");
+        if (type != null && type.isJsonPrimitive()) {
+            String t = type.getAsString().toLowerCase(Locale.ROOT);
+            a.swordId = t.contains(":") ? t : "minecraft:" + t;
+            a.swordFound = true;
+        }
+        JsonElement en = sword.get("enchants");
+        if (en == null) return;
+        if (en.isJsonObject()) {
+            for (Map.Entry<String, JsonElement> e : en.getAsJsonObject().entrySet()) {
+                try {
+                    addEnchant(a, e.getKey(), e.getValue().getAsInt());
+                } catch (Throwable ignored) {
+                    // уровень не число: пропускаем это зачарование
+                }
+            }
+        } else if (en.isJsonArray()) {
+            for (JsonElement x : en.getAsJsonArray()) {
+                if (!x.isJsonObject()) continue;
+                JsonObject o = x.getAsJsonObject();
+                try {
+                    String id = o.has("id") ? o.get("id").getAsString() : "";
+                    int lvl = o.has("lvl") ? o.get("lvl").getAsInt() : (o.has("level") ? o.get("level").getAsInt() : 1);
+                    addEnchant(a, id, lvl);
+                } catch (Throwable ignored) {
+                    // пропускаем
+                }
+            }
+        }
+    }
+
+    /** Названия серверных зачарований HolyWorld. Неизвестные «что-то-enchant-custom» показываются в читаемом виде. */
+    private static final Map<String, String> HW_CUSTOM_NAMES = Map.of(
+            "critical-enchant-custom", "Критический",
+            "destroyer-enchant-custom", "Разрушитель",
+            "rich-enchant-custom", "Богач",
+            "mob-farmer-enchant", "Фармер");
+
+    private static String prettyCustom(String path) {
+        String p = path.replace("-enchant-custom", "").replace("-enchant", "").replace('-', ' ').replace('_', ' ').trim();
+        return p.isEmpty() ? path : Character.toUpperCase(p.charAt(0)) + p.substring(1);
     }
 
     private static final Pattern LORE_MOB = Pattern.compile("(?i)(?:моб|mob|существо|тип)\\s*[:：]\\s*(.+)");
@@ -376,16 +452,25 @@ public final class SpawnerInfo {
     }
 
     private static void addEnchant(Acc a, String id, int lvl) {
-        if (id == null || id.isEmpty() || lvl <= 0) return;
-        String full = id.contains(":") ? id : "minecraft:" + id.toLowerCase(Locale.ROOT);
+        if (id == null || id.isBlank() || lvl <= 0) return;
+        String raw = id.trim();
+        int colon = raw.indexOf(':');
+        String ns = colon >= 0 ? raw.substring(0, colon).toLowerCase(Locale.ROOT) : "minecraft";
+        String path = (colon >= 0 ? raw.substring(colon + 1) : raw).toLowerCase(Locale.ROOT);
+        if (path.equals("sweeping")) path = "sweeping_edge"; // старое название «Разящего клинка»
+        String full = ns + ":" + path;
         for (Ench e : a.enchants) if (e.id().equals(full)) return;
-        String shortId = full.substring(full.indexOf(':') + 1);
         String label = null;
         for (SpawnerFilter.Entry ce : SpawnerFilter.customEntries()) {
-            if (ce.matches(shortId, null)) {
+            if (ce.matches(path, null)) {
                 label = ce.label();
                 break;
             }
+        }
+        // Серверные зачарования имеют дефис в id («critical-enchant-custom»), у ванильных только подчёркивания.
+        if (label == null && path.indexOf('-') >= 0) {
+            label = HW_CUSTOM_NAMES.get(path);
+            if (label == null) label = prettyCustom(path);
         }
         a.enchants.add(new Ench(full, lvl, label));
     }
