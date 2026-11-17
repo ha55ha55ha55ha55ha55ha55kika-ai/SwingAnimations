@@ -571,5 +571,13 @@
   "swinganimations.module.free_look": "FreeLook",
   "swinganimations.module.block_outline": "BlockOutline",
   "swinganimations.ui.search_hint": "Поиск модулей и настроек...",
-  "swinganimations.ui.search_empty": "Ничего не найдено"
+  "swinganimations.ui.search_empty": "Ничего не найдено",
+  "swinganimations.module.spawner_search": "SpawnerSearch",
+  "key.swinganimations.spawner_dump": "Спавнер: записать данные предмета в файл",
+  "swinganimations.setting.spawner_search.tooltip": "Показывать в подсказке предмета",
+  "swinganimations.setting.spawner_search.badge": "Короткая подпись на слоте",
+  "swinganimations.setting.spawner_search.only_auction": "Только в меню аукциона",
+  "swinganimations.setting.spawner_search.highlight": "Подсвечивать подходящие спавнеры",
+  "swinganimations.setting.spawner_search.highlight_mob": "Подсвечивать моба",
+  "swinganimations.setting.spawner_search.min_sharpness": "Подсвечивать от остроты"
 }

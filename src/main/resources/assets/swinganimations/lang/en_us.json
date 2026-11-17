@@ -382,5 +382,13 @@
   "swinganimations.module.free_look": "FreeLook",
   "swinganimations.module.block_outline": "BlockOutline",
   "swinganimations.ui.search_hint": "Search modules and settings...",
-  "swinganimations.ui.search_empty": "Nothing found"
+  "swinganimations.ui.search_empty": "Nothing found",
+  "swinganimations.module.spawner_search": "SpawnerSearch",
+  "key.swinganimations.spawner_dump": "Spawner: dump item data to file",
+  "swinganimations.setting.spawner_search.tooltip": "Show in item tooltip",
+  "swinganimations.setting.spawner_search.badge": "Short label on the slot",
+  "swinganimations.setting.spawner_search.only_auction": "Only in auction menus",
+  "swinganimations.setting.spawner_search.highlight": "Highlight matching spawners",
+  "swinganimations.setting.spawner_search.highlight_mob": "Highlight mob",
+  "swinganimations.setting.spawner_search.min_sharpness": "Highlight min. Sharpness"
 }

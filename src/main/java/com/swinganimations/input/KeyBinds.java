@@ -28,6 +28,7 @@ public final class KeyBinds {
     public static KeyBinding MUSIC_NEXT;
     public static KeyBinding MUSIC_PREV;
     public static KeyBinding MINIMAP_ZOOM_IN;
+    public static KeyBinding SPAWNER_DUMP;
     public static KeyBinding MINIMAP_ZOOM_OUT;
     public static KeyBinding MINIMAP_MARK;
     public static KeyBinding MINIMAP_UNMARK;
@@ -49,6 +50,7 @@ public final class KeyBinds {
         MUSIC_PAUSE = reg("music_pause", GLFW.GLFW_KEY_UNKNOWN);
         MUSIC_NEXT = reg("music_next", GLFW.GLFW_KEY_UNKNOWN);
         MUSIC_PREV = reg("music_prev", GLFW.GLFW_KEY_UNKNOWN);
+        SPAWNER_DUMP = reg("spawner_dump", GLFW.GLFW_KEY_F8);
         MINIMAP_ZOOM_IN = reg("minimap_zoom_in", GLFW.GLFW_KEY_RIGHT_BRACKET);
         MINIMAP_ZOOM_OUT = reg("minimap_zoom_out", GLFW.GLFW_KEY_LEFT_BRACKET);
         MINIMAP_MARK = reg("minimap_mark", GLFW.GLFW_KEY_B);

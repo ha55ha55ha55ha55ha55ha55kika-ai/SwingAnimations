@@ -53,6 +53,7 @@ public final class ModuleManager {
     public static ClientLinkModule clientLink;
     public static DeathMarkerModule deathMarker;
     public static MinimapModule minimap;
+    public static SpawnerSearchModule spawnerSearch;
     private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
     private static final int MAX_RENDER_ERRORS = 5;
 
@@ -126,6 +127,8 @@ public final class ModuleManager {
         MODULES.add(deathMarker);
         minimap = new MinimapModule();
         MODULES.add(minimap);
+        spawnerSearch = new SpawnerSearchModule();
+        MODULES.add(spawnerSearch);
         com.swinganimations.gui.HudLayout.load();
         ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
             if (!(screen instanceof ChatScreen)) return;

@@ -31,7 +31,8 @@
     "WorldRendererSkyMixin",
     "PlayerDisplayNameMixin",
     "PlayerListHudMixin",
-    "ChatHudBadgeMixin"
+    "ChatHudBadgeMixin",
+    "HandledScreenSpawnerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
