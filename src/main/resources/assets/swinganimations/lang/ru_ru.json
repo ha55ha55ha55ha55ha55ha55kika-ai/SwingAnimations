@@ -578,6 +578,11 @@
   "swinganimations.setting.spawner_search.badge": "Короткая подпись на слоте",
   "swinganimations.setting.spawner_search.only_auction": "Только в меню аукциона",
   "swinganimations.setting.spawner_search.highlight": "Подсвечивать подходящие спавнеры",
-  "swinganimations.setting.spawner_search.highlight_mob": "Подсвечивать моба",
-  "swinganimations.setting.spawner_search.min_sharpness": "Подсвечивать от остроты"
+  "swinganimations.setting.spawner_search.highlight_mob": "Фильтр по мобу",
+  "swinganimations.setting.spawner_search.min_sharpness": "Подсвечивать от остроты",
+  "swinganimations.setting.spawner_search.panel": "Панель с деталями и фильтром",
+  "swinganimations.setting.spawner_search.search": "Подсвечивать подходящие",
+  "swinganimations.setting.spawner_search.dim": "Затемнять неподходящие спавнеры",
+  "swinganimations.setting.spawner_search.match": "Зачарования: все / любое",
+  "swinganimations.setting.spawner_search.min_level": "Мин. уровень зачарования"
 }

@@ -389,6 +389,11 @@
   "swinganimations.setting.spawner_search.badge": "Short label on the slot",
   "swinganimations.setting.spawner_search.only_auction": "Only in auction menus",
   "swinganimations.setting.spawner_search.highlight": "Highlight matching spawners",
-  "swinganimations.setting.spawner_search.highlight_mob": "Highlight mob",
-  "swinganimations.setting.spawner_search.min_sharpness": "Highlight min. Sharpness"
+  "swinganimations.setting.spawner_search.highlight_mob": "Mob filter",
+  "swinganimations.setting.spawner_search.min_sharpness": "Highlight min. Sharpness",
+  "swinganimations.setting.spawner_search.panel": "Details panel and filter",
+  "swinganimations.setting.spawner_search.search": "Highlight matches",
+  "swinganimations.setting.spawner_search.dim": "Dim non-matching spawners",
+  "swinganimations.setting.spawner_search.match": "Enchant match (All / Any)",
+  "swinganimations.setting.spawner_search.min_level": "Min. enchant level"
 }

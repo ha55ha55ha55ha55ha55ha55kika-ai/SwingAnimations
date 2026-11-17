@@ -1,5 +1,6 @@
 package com.swinganimations.mixin;
 
+import com.swinganimations.gui.SpawnerPanel;
 import com.swinganimations.input.KeyBinds;
 import com.swinganimations.module.ModuleManager;
 import com.swinganimations.module.SpawnerSearchModule;
@@ -17,10 +18,42 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(HandledScreen.class)
 public abstract class HandledScreenSpawnerMixin {
     @Shadow protected Slot focusedSlot;
+    @Shadow protected int x;
+    @Shadow protected int y;
+    @Shadow protected int backgroundWidth;
+    @Shadow protected int backgroundHeight;
 
     @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;IIF)V", at = @At("TAIL"), require = 0)
     private void swa$trackHover(DrawContext ctx, int mx, int my, float delta, CallbackInfo ci) {
         SpawnerSearchModule.hovered = focusedSlot;
+        try {
+            SpawnerSearchModule m = ModuleManager.spawnerSearch;
+            if (m != null && m.isEnabled()) {
+                m.renderOverlay((HandledScreen<?>) (Object) this, ctx, mx, my, focusedSlot, x, y, backgroundWidth, backgroundHeight);
+            }
+        } catch (Throwable ignored) {
+            // панель не должна ломать интерфейс
+        }
+    }
+
+    /** Клики по панели SpawnerSearch не доходят до слотов контейнера. */
+    @Inject(method = "mouseClicked(DDI)Z", at = @At("HEAD"), cancellable = true, require = 0)
+    private void swa$panelClick(double mx, double my, int button, CallbackInfoReturnable<Boolean> cir) {
+        try {
+            SpawnerSearchModule m = ModuleManager.spawnerSearch;
+            if (m != null && m.isEnabled() && SpawnerPanel.click(mx, my, button)) cir.setReturnValue(true);
+        } catch (Throwable ignored) {
+            // не критично
+        }
+    }
+
+    @Inject(method = "mouseReleased(DDI)Z", at = @At("HEAD"), cancellable = true, require = 0)
+    private void swa$panelRelease(double mx, double my, int button, CallbackInfoReturnable<Boolean> cir) {
+        try {
+            if (SpawnerPanel.release()) cir.setReturnValue(true);
+        } catch (Throwable ignored) {
+            // не критично
+        }
     }
 
     @Inject(method = "drawSlot(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/screen/slot/Slot;)V", at = @At("TAIL"), require = 0)

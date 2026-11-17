@@ -18,6 +18,7 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.registry.Registries;
+import net.minecraft.client.resource.language.I18n;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -38,33 +39,49 @@ import java.util.regex.Pattern;
  * Если на вашем сервере данные лежат иначе, запишите предмет клавишей «Spawner dump» и подстройте разбор по файлу.
  */
 public final class SpawnerInfo {
-    public static final SpawnerInfo NONE = new SpawnerInfo(null, null, null, new ArrayList<>());
+    public static final SpawnerInfo NONE = new SpawnerInfo(null, null, null, null, new ArrayList<>());
 
     /** Показываемое имя моба (например «Зомби») и его id (minecraft:zombie), либо null. */
     public final String mobName;
     public final String mobId;
     /** Показываемое имя меча (например «Алмазный меч»), либо null. */
     public final String swordName;
+    /** id меча (minecraft:netherite_sword), либо null. */
+    public final String swordId;
     public final List<Ench> enchants;
 
-    public record Ench(String id, int level) {
+    /** label != null: серверное (нестандартное) зачарование, показывается под своим названием. */
+    public record Ench(String id, int level, String label) {
+        public Ench(String id, int level) { this(id, level, null); }
+
         public String shortId() {
             int i = id.indexOf(':');
             return i >= 0 ? id.substring(i + 1) : id;
         }
 
-        public Text text() {
+        public boolean custom() { return label != null; }
+
+        /** Название без уровня. */
+        public String name() {
+            if (label != null) return label;
             Identifier ident = Identifier.tryParse(id);
             String key = ident == null ? "enchantment.minecraft." + shortId() : "enchantment." + ident.getNamespace() + "." + ident.getPath();
+            if (I18n.hasTranslation(key)) return I18n.translate(key);
+            String raw = shortId().replace('_', ' ');
+            return raw.isEmpty() ? id : Character.toUpperCase(raw.charAt(0)) + raw.substring(1);
+        }
+
+        public Text text() {
             Text lvl = level >= 1 && level <= 10 ? Text.translatable("enchantment.level." + level) : Text.literal(String.valueOf(level));
-            return Text.translatable(key).append(" ").append(lvl);
+            return Text.literal(name()).append(" ").append(lvl);
         }
     }
 
-    private SpawnerInfo(String mobName, String mobId, String swordName, List<Ench> enchants) {
+    private SpawnerInfo(String mobName, String mobId, String swordName, String swordId, List<Ench> enchants) {
         this.mobName = mobName;
         this.mobId = mobId;
         this.swordName = swordName;
+        this.swordId = swordId;
         this.enchants = enchants;
     }
 
@@ -121,6 +138,11 @@ public final class SpawnerInfo {
         String swordId;
         final List<Ench> enchants = new ArrayList<>();
         boolean swordFound;
+        /** Строки lore меча и самого спавнера: там у серверных зачарований лежат названия и уровни. */
+        final List<String> swordLore = new ArrayList<>();
+        final List<String> spawnerLore = new ArrayList<>();
+        /** Уровни серверных зачарований, найденные в custom_data по ключам. */
+        final Map<String, Integer> customLevels = new java.util.HashMap<>();
     }
 
     private static SpawnerInfo parse(ItemStack stack) {
@@ -135,6 +157,8 @@ public final class SpawnerInfo {
         LoreComponent lore = stack.get(DataComponentTypes.LORE);
         if (lore != null) scanLore(lore, a);
 
+        applyCustom(a);
+
         String mobName = null;
         if (a.mobId != null) {
             Identifier id = Identifier.tryParse(a.mobId);
@@ -146,7 +170,7 @@ public final class SpawnerInfo {
             if (id != null && Registries.ITEM.containsId(id)) swordName = Registries.ITEM.get(id).getName().getString();
         }
         if (mobName == null && swordName == null) return NONE;
-        return new SpawnerInfo(mobName, a.mobId, swordName, a.enchants);
+        return new SpawnerInfo(mobName, a.mobId, swordName, swordName == null ? null : a.swordId, a.enchants);
     }
 
     private static final Pattern LORE_MOB = Pattern.compile("(?i)(?:моб|mob|существо|тип)\\s*[:：]\\s*(.+)");
@@ -155,6 +179,7 @@ public final class SpawnerInfo {
     private static void scanLore(LoreComponent lore, Acc a) {
         for (Text line : lore.lines()) {
             String s = line.getString().replaceAll("§.", "").trim();
+            if (!s.isEmpty()) a.spawnerLore.add(s);
             Matcher m = LORE_MOB.matcher(s);
             if (a.mobId == null && m.find()) a.mobId = matchEntityByName(m.group(1).trim());
             m = LORE_SWORD.matcher(s);
@@ -208,6 +233,7 @@ public final class SpawnerInfo {
                         a.swordFound = true;
                         a.swordId = id;
                         readEnchants(c, a);
+                        readSwordExtras(c, a);
                     }
                 } else if (a.mobId == null && mobKey(key.isEmpty() ? "id" : key)) {
                     a.mobId = normalizeEntity(id);
@@ -274,6 +300,7 @@ public final class SpawnerInfo {
                         a.swordFound = true;
                         a.swordId = full;
                         readEnchantsJson(o, a);
+                        readSwordExtrasJson(o, a);
                     }
                 } else if (a.mobId == null && mobKey(key.isEmpty() ? "id" : key)) {
                     a.mobId = normalizeEntity(id);
@@ -352,6 +379,220 @@ public final class SpawnerInfo {
         if (id == null || id.isEmpty() || lvl <= 0) return;
         String full = id.contains(":") ? id : "minecraft:" + id.toLowerCase(Locale.ROOT);
         for (Ench e : a.enchants) if (e.id().equals(full)) return;
-        a.enchants.add(new Ench(full, lvl));
+        String shortId = full.substring(full.indexOf(':') + 1);
+        String label = null;
+        for (SpawnerFilter.Entry ce : SpawnerFilter.customEntries()) {
+            if (ce.matches(shortId, null)) {
+                label = ce.label();
+                break;
+            }
+        }
+        a.enchants.add(new Ench(full, lvl, label));
+    }
+
+    // ---------------- серверные зачарования (lore, custom_data) ----------------
+
+    private static final Pattern ROMAN_LINE = Pattern.compile("^([\\p{L}][\\p{L} '\\-]{2,30}?)\\s+(X|IX|VIII|VII|VI|IV|V|III|II|I)$");
+    private static final Pattern LEVEL_AFTER = Pattern.compile("^\\s*[:\\-]?\\s*(X|IX|VIII|VII|VI|IV|V|III|II|I|\\d{1,2})\\b", Pattern.CASE_INSENSITIVE);
+
+    private static int parseLevel(String s) {
+        String t = s.trim().toUpperCase(Locale.ROOT);
+        try {
+            return Integer.parseInt(t);
+        } catch (NumberFormatException ignored) {
+            // римская цифра
+        }
+        return switch (t) {
+            case "I" -> 1;
+            case "II" -> 2;
+            case "III" -> 3;
+            case "IV" -> 4;
+            case "V" -> 5;
+            case "VI" -> 6;
+            case "VII" -> 7;
+            case "VIII" -> 8;
+            case "IX" -> 9;
+            case "X" -> 10;
+            default -> 0;
+        };
+    }
+
+    private static String clean(String s) {
+        return s == null ? "" : s.replaceAll("§.", "").trim();
+    }
+
+    /** Достаёт текст из lore/названия в любом виде: строка, JSON-компонент или NBT-компонент. */
+    private static void gather(NbtElement el, StringBuilder sb, int depth) {
+        if (el == null || depth > 6) return;
+        byte t = el.getType();
+        if (t == NbtElement.STRING_TYPE) {
+            String v = el.asString();
+            String tr = v.trim();
+            if (tr.startsWith("{") || tr.startsWith("[") || tr.startsWith("\"")) {
+                try {
+                    gatherJson(JsonParser.parseString(tr), sb, depth + 1);
+                    return;
+                } catch (Throwable ignored) {
+                    // обычная строка
+                }
+            }
+            sb.append(v);
+        } else if (t == NbtElement.COMPOUND_TYPE) {
+            NbtCompound c = (NbtCompound) el;
+            if (c.contains("text", NbtElement.STRING_TYPE)) sb.append(c.getString("text"));
+            if (c.contains("extra")) gather(c.get("extra"), sb, depth + 1);
+        } else if (t == NbtElement.LIST_TYPE) {
+            NbtList l = (NbtList) el;
+            for (int i = 0; i < l.size(); i++) gather(l.get(i), sb, depth + 1);
+        }
+    }
+
+    private static void gatherJson(JsonElement el, StringBuilder sb, int depth) {
+        if (el == null || depth > 6) return;
+        if (el.isJsonPrimitive()) {
+            sb.append(el.getAsString());
+        } else if (el.isJsonObject()) {
+            JsonObject o = el.getAsJsonObject();
+            if (o.has("text") && o.get("text").isJsonPrimitive()) sb.append(o.get("text").getAsString());
+            if (o.has("extra")) gatherJson(o.get("extra"), sb, depth + 1);
+        } else if (el.isJsonArray()) {
+            for (JsonElement x : el.getAsJsonArray()) gatherJson(x, sb, depth + 1);
+        }
+    }
+
+    private static void addLoreLine(Acc a, NbtElement el) {
+        StringBuilder sb = new StringBuilder();
+        gather(el, sb, 0);
+        String line = clean(sb.toString());
+        if (!line.isEmpty()) a.swordLore.add(line);
+    }
+
+    private static void collectLore(NbtElement el, Acc a) {
+        if (el == null) return;
+        if (el.getType() == NbtElement.LIST_TYPE) {
+            NbtList l = (NbtList) el;
+            for (int i = 0; i < l.size(); i++) addLoreLine(a, l.get(i));
+        } else {
+            addLoreLine(a, el);
+        }
+    }
+
+    private static void readSwordExtras(NbtCompound item, Acc a) {
+        NbtCompound comps = item.contains("components", NbtElement.COMPOUND_TYPE) ? item.getCompound("components") : null;
+        if (comps != null) {
+            collectLore(comps.get("minecraft:lore"), a);
+            collectLore(comps.get("lore"), a);
+            collectLore(comps.get("minecraft:custom_name"), a);
+            if (comps.contains("minecraft:custom_data", NbtElement.COMPOUND_TYPE)) customKeys(comps.getCompound("minecraft:custom_data"), a, 0);
+        }
+        for (String holder : new String[]{"tag", "nbt"}) {
+            if (!item.contains(holder, NbtElement.COMPOUND_TYPE)) continue;
+            NbtCompound tag = item.getCompound(holder);
+            if (tag.contains("display", NbtElement.COMPOUND_TYPE)) collectLore(tag.getCompound("display").get("Lore"), a);
+            customKeys(tag, a, 0);
+        }
+        collectLore(item.get("Lore"), a);
+    }
+
+    private static void readSwordExtrasJson(JsonObject item, Acc a) {
+        JsonObject comps = item.has("components") && item.get("components").isJsonObject() ? item.getAsJsonObject("components") : item;
+        for (String k : new String[]{"minecraft:lore", "lore", "Lore", "minecraft:custom_name"}) {
+            JsonElement e = comps.get(k);
+            if (e == null) continue;
+            if (e.isJsonArray()) {
+                for (JsonElement x : e.getAsJsonArray()) {
+                    StringBuilder sb = new StringBuilder();
+                    if (x.isJsonPrimitive()) {
+                        gather(net.minecraft.nbt.NbtString.of(x.getAsString()), sb, 0);
+                    } else {
+                        gatherJson(x, sb, 0);
+                    }
+                    String line = clean(sb.toString());
+                    if (!line.isEmpty()) a.swordLore.add(line);
+                }
+            } else {
+                StringBuilder sb = new StringBuilder();
+                if (e.isJsonPrimitive()) gather(net.minecraft.nbt.NbtString.of(e.getAsString()), sb, 0); else gatherJson(e, sb, 0);
+                String line = clean(sb.toString());
+                if (!line.isEmpty()) a.swordLore.add(line);
+            }
+        }
+        JsonElement cd = comps.get("minecraft:custom_data");
+        if (cd != null && cd.isJsonObject()) customKeysJson(cd.getAsJsonObject(), a, 0);
+    }
+
+    private static void customKeys(NbtCompound c, Acc a, int depth) {
+        if (depth > 4) return;
+        for (String k : c.getKeys()) {
+            String lk = k.toLowerCase(Locale.ROOT);
+            NbtElement v = c.get(k);
+            for (SpawnerFilter.Entry e : SpawnerFilter.customEntries()) {
+                if (!e.matches(lk, null)) continue;
+                int lvl = 1;
+                if (v != null && v.getType() >= NbtElement.BYTE_TYPE && v.getType() <= NbtElement.DOUBLE_TYPE) lvl = Math.max(1, c.getInt(k));
+                a.customLevels.merge(e.key(), lvl, Math::max);
+            }
+            if (v != null && v.getType() == NbtElement.COMPOUND_TYPE) customKeys((NbtCompound) v, a, depth + 1);
+        }
+    }
+
+    private static void customKeysJson(JsonObject o, Acc a, int depth) {
+        if (depth > 4) return;
+        for (Map.Entry<String, JsonElement> en : o.entrySet()) {
+            String lk = en.getKey().toLowerCase(Locale.ROOT);
+            JsonElement v = en.getValue();
+            for (SpawnerFilter.Entry e : SpawnerFilter.customEntries()) {
+                if (!e.matches(lk, null)) continue;
+                int lvl = 1;
+                if (v.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber()) lvl = Math.max(1, v.getAsInt());
+                a.customLevels.merge(e.key(), lvl, Math::max);
+            }
+            if (v.isJsonObject()) customKeysJson(v.getAsJsonObject(), a, depth + 1);
+        }
+    }
+
+    /** Добавляет серверные зачарования (Фармер и т.п.), найденные в lore/custom_data, и неизвестные строки вида «Название IV» из lore меча. */
+    private static void applyCustom(Acc a) {
+        for (SpawnerFilter.Entry ce : SpawnerFilter.customEntries()) {
+            boolean have = false;
+            for (Ench e : a.enchants) if (ce.matches(e.shortId(), e.label())) { have = true; break; }
+            if (have) continue;
+            int lvl = a.customLevels.getOrDefault(ce.key(), 0);
+            if (lvl == 0) lvl = levelFromLines(a.swordLore, ce);
+            if (lvl == 0) lvl = levelFromLines(a.spawnerLore, ce);
+            if (lvl > 0) a.enchants.add(new Ench("custom:" + ce.key(), lvl, ce.label()));
+        }
+        for (String line : a.swordLore) {
+            Matcher m = ROMAN_LINE.matcher(line);
+            if (!m.matches()) continue;
+            String name = m.group(1).trim();
+            String lower = name.toLowerCase(Locale.ROOT);
+            boolean known = false;
+            for (Ench e : a.enchants) {
+                if (e.name().equalsIgnoreCase(name) || e.shortId().equalsIgnoreCase(lower.replace(' ', '_'))) { known = true; break; }
+            }
+            for (SpawnerFilter.Entry fe : SpawnerFilter.ENTRIES) {
+                if (fe.matches(lower.replace(' ', '_'), lower)) { known = true; break; }
+            }
+            if (known) continue;
+            a.enchants.add(new Ench("lore:" + lower.replace(' ', '_'), Math.max(1, parseLevel(m.group(2))), name));
+        }
+    }
+
+    private static int levelFromLines(List<String> lines, SpawnerFilter.Entry ce) {
+        for (String line : lines) {
+            String low = line.toLowerCase(Locale.ROOT);
+            for (String alias : ce.aliases()) {
+                int i = low.indexOf(alias);
+                if (i < 0) continue;
+                Matcher m = LEVEL_AFTER.matcher(line.substring(i + alias.length()));
+                if (m.find()) {
+                    int l = parseLevel(m.group(1));
+                    if (l > 0) return l;
+                }
+                return 1;
+            }
+        }
+        return 0;
     }
 }

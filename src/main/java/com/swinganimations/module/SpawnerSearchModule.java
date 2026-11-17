@@ -1,5 +1,8 @@
 package com.swinganimations.module;
 
+import com.swinganimations.gui.SpawnerPanel;
+import com.swinganimations.gui.Ui;
+import com.swinganimations.util.SpawnerFilter;
 import com.swinganimations.util.SpawnerInfo;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.fabricmc.loader.api.FabricLoader;
@@ -23,6 +26,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * SpawnerSearch: в меню аукциона (и в любом контейнере) показывает, что лежит внутри золотого спавнера:
@@ -34,14 +38,18 @@ public final class SpawnerSearchModule extends Module {
     private static final String[] MOBS = {"Any", "Zombie", "Skeleton", "Spider", "Cave Spider", "Creeper", "Enderman", "Blaze", "Pig",
             "Cow", "Iron Golem", "Witch", "Slime", "Magma Cube", "Wither Skeleton", "Zombified Piglin", "Guardian"};
 
-    private final Setting.Bool tooltip = add(new Setting.Bool("tooltip", "Show in item tooltip", true));
+    private final Setting.Bool panel = add(new Setting.Bool("panel", "Details panel and filter", true));
+    private final Setting.Bool search = add(new Setting.Bool("search", "Highlight matches", true));
+    private final Setting.Bool dim = add(new Setting.Bool("dim", "Dim non-matching spawners", true)
+            .<Setting.Bool>visibleWhen(() -> this.search.value));
     private final Setting.Bool badge = add(new Setting.Bool("badge", "Short label on the slot", true));
+    private final Setting.Bool tooltip = add(new Setting.Bool("tooltip", "Show in item tooltip", false));
     private final Setting.Bool onlyAuction = add(new Setting.Bool("only_auction", "Only in auction menus", false));
-    private final Setting.Bool highlight = add(new Setting.Bool("highlight", "Highlight matching spawners", false));
-    private final Setting.Mode highlightMob = add(new Setting.Mode("highlight_mob", "Highlight mob", MOBS)
-            .<Setting.Mode>visibleWhen(() -> this.highlight.value));
-    private final Setting.Num minSharpness = add(new Setting.Num("min_sharpness", "Highlight min. Sharpness", 0f, 0f, 7f, 1f)
-            .<Setting.Num>visibleWhen(() -> this.highlight.value));
+    private final Setting.Mode mob = add(new Setting.Mode("highlight_mob", "Mob filter", MOBS));
+    private final Setting.Mode match = add(new Setting.Mode("match", "Enchant match", "All", "Any"));
+    private final Setting.Num minLevel = add(new Setting.Num("min_level", "Min. enchant level", 1f, 1f, 10f, 1f));
+    // Выбранные зачарования («farmer,sharpness»): меняется кнопками в панели, в ClickGUI не показывается.
+    private final Setting.Str filter = add(new Setting.Str("filter", "Enchant filter", ""));
 
     /** Слот под курсором в открытом контейнере (обновляет миксин). */
     public static volatile Slot hovered;
@@ -57,7 +65,7 @@ public final class SpawnerSearchModule extends Module {
         });
     }
 
-    private boolean inScope() {
+    public boolean inScope() {
         if (!isEnabled()) return false;
         if (!onlyAuction.value) return true;
         Screen s = MinecraftClient.getInstance().currentScreen;
@@ -81,54 +89,127 @@ public final class SpawnerSearchModule extends Module {
         }
     }
 
-    // ---------------- слот: подпись и подсветка ----------------
+    // ---------------- фильтр (им управляет панель) ----------------
 
-    private boolean matches(SpawnerInfo i) {
-        boolean any = false;
-        if (!highlightMob.is("Any")) {
-            any = true;
-            String want = "minecraft:" + highlightMob.get().toLowerCase(Locale.ROOT).replace(' ', '_');
-            if (i.mobId == null || !i.mobId.equals(want)) return false;
+    public boolean panelEnabled() { return panel.value; }
+
+    private String keysCsv = "";
+    private Set<String> keysSet = java.util.Collections.emptySet();
+
+    /** Выбранные зачарования; разбор строки кэшируется (вызывается на каждый слот каждый кадр). */
+    public Set<String> keys() {
+        String v = filter.value == null ? "" : filter.value;
+        if (!v.equals(keysCsv)) {
+            keysCsv = v;
+            keysSet = SpawnerFilter.parse(v);
         }
-        if (minSharpness.value > 0f) {
-            any = true;
-            if (i.level("sharpness") < (int) minSharpness.value) return false;
-        }
-        return any;
+        return keysSet;
     }
+
+    public void toggleKey(String key) {
+        filter.value = SpawnerFilter.toggle(filter.value, key);
+        ModuleManager.save();
+    }
+
+    public boolean matchAll() { return match.is("All"); }
+
+    public void toggleMatch() {
+        match.next();
+        ModuleManager.save();
+    }
+
+    public int minLevel() { return (int) minLevel.value; }
+
+    public void cycleMinLevel(int dir) {
+        int v = (int) minLevel.value + dir;
+        if (v > 5) v = 1;
+        if (v < 1) v = 5;
+        minLevel.set(v);
+        ModuleManager.save();
+    }
+
+    public boolean mobIsAny() { return mob.is("Any"); }
+
+    public void cycleMob(int dir) {
+        int n = mob.modes.length;
+        mob.index = ((mob.index + dir) % n + n) % n;
+        ModuleManager.save();
+    }
+
+    /** Нужный моб в виде minecraft:zombie либо null, если мобов не фильтруем. */
+    private String mobId() {
+        return mob.is("Any") ? null : "minecraft:" + mob.get().toLowerCase(Locale.ROOT).replace(' ', '_');
+    }
+
+    public String mobLabel() {
+        String id = mobId();
+        if (id == null) return "любой";
+        net.minecraft.util.Identifier ident = net.minecraft.util.Identifier.tryParse(id);
+        return ident != null && Registries.ENTITY_TYPE.containsId(ident) ? Registries.ENTITY_TYPE.get(ident).getName().getString() : mob.get();
+    }
+
+    public boolean filterActive() { return mobId() != null || !keys().isEmpty(); }
+
+    public boolean matches(SpawnerInfo i) {
+        return SpawnerFilter.matches(i, keys(), matchAll(), minLevel(), mobId());
+    }
+
+    // ---------------- слот: подпись, подсветка, затемнение ----------------
 
     /** Вызывается миксином после отрисовки слота. */
     public void drawSlot(DrawContext ctx, Slot slot) {
-        if (!inScope() || (!badge.value && !highlight.value)) return;
+        if (!inScope()) return;
         SpawnerInfo i = SpawnerInfo.of(slot.getStack());
         if (i == null) return;
-        if (highlight.value && matches(i)) {
-            int x = slot.x, y = slot.y;
-            ctx.fill(x, y, x + 16, y + 16, 0x44FFD24A);
-            ctx.fill(x, y, x + 16, y + 1, 0xFFFFD24A);
-            ctx.fill(x, y + 15, x + 16, y + 16, 0xFFFFD24A);
-            ctx.fill(x, y, x + 1, y + 16, 0xFFFFD24A);
-            ctx.fill(x + 15, y, x + 16, y + 16, 0xFFFFD24A);
+        int x = slot.x, y = slot.y;
+        if (search.value && filterActive()) {
+            if (matches(i)) {
+                ctx.fill(x, y, x + 16, y + 16, 0x44FFD24A);
+                frame(ctx, x, y, 0xFFFFD24A);
+            } else if (dim.value) {
+                ctx.fill(x, y, x + 16, y + 16, 0xB0101010);
+            }
         }
+        if (SpawnerPanel.isShown(slot)) frame(ctx, x, y, Ui.ACCENT);
         if (!badge.value) return;
         MinecraftClient mc = MinecraftClient.getInstance();
-        ctx.fill(slot.x, slot.y + 6, slot.x + 16, slot.y + 16, 0xA0000000);
+        ctx.fill(x, y + 6, x + 16, y + 16, 0xA0000000);
         MatrixStack m = ctx.getMatrices();
         m.push();
-        m.translate(slot.x + 1f, slot.y + 7f, 300f);
+        m.translate(x + 1f, y + 7f, 300f);
         m.scale(0.5f, 0.5f, 1f);
         if (i.mobName != null) ctx.drawText(mc.textRenderer, cut(i.mobName, 5), 0, 0, 0xFFFFE066, false);
-        SpawnerInfo.Ench e = i.best();
+        SpawnerInfo.Ench e = badgeEnchant(i);
         if (e != null) {
-            String name = e.text().getString();
-            int sp = name.lastIndexOf(' ');
-            String base = sp > 0 ? name.substring(0, sp) : name;
             String extra = i.enchants.size() > 1 ? "+" + (i.enchants.size() - 1) : "";
-            ctx.drawText(mc.textRenderer, cut(base, 3) + e.level() + extra, 0, 9, 0xFFB388FF, false);
+            ctx.drawText(mc.textRenderer, cut(e.name(), 3) + e.level() + extra, 0, 9, e.custom() ? 0xFFFF9BFF : 0xFFB388FF, false);
         } else if (i.swordName != null) {
             ctx.drawText(mc.textRenderer, "меч", 0, 9, 0xFF7FDBFF, false);
         }
         m.pop();
+    }
+
+    private static void frame(DrawContext ctx, int x, int y, int color) {
+        ctx.fill(x, y, x + 16, y + 1, color);
+        ctx.fill(x, y + 15, x + 16, y + 16, color);
+        ctx.fill(x, y, x + 1, y + 16, color);
+        ctx.fill(x + 15, y, x + 16, y + 16, color);
+    }
+
+    /** Что писать на слоте: сначала выбранные в фильтре зачарования, иначе самое сильное. */
+    private SpawnerInfo.Ench badgeEnchant(SpawnerInfo i) {
+        Set<String> ks = keys();
+        for (String k : ks) {
+            SpawnerFilter.Entry fe = SpawnerFilter.byKey(k);
+            if (fe == null) continue;
+            for (SpawnerInfo.Ench e : i.enchants) if (fe.matches(e.shortId(), e.label())) return e;
+        }
+        return i.best();
+    }
+
+    /** Панель рядом с контейнером (зовёт миксин в конце render). */
+    public void renderOverlay(HandledScreen<?> screen, DrawContext ctx, int mx, int my, Slot hoveredSlot, int gx, int gy, int gw, int gh) {
+        SpawnerPanel.render(screen, ctx, mx, my, hoveredSlot, gx, gy, gw, gh);
     }
 
     private static String cut(String s, int n) { return s.length() <= n ? s : s.substring(0, n); }
