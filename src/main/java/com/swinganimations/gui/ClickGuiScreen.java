@@ -132,6 +132,8 @@ public class ClickGuiScreen extends Screen {
     private boolean moved;
 
     private TextFieldWidget nameField;
+    private TextFieldWidget searchField;
+    private String query = "";
     private String nameDraft = "";
     private int fieldX, fieldW;
     private List<Cfg> cfgs = new ArrayList<>();
@@ -212,9 +214,36 @@ public class ClickGuiScreen extends Screen {
         nameField.setMaxLength(32);
         nameField.setText(nameDraft);
         nameField.setFocused(false);
+        searchField = new TextFieldWidget(textRenderer, lx + 7, ly + 4, lw - 14, 12, Text.empty());
+        searchField.setDrawsBackground(false);
+        searchField.setMaxLength(40);
+        searchField.setText(query);
+        searchField.setFocused(false);
     }
 
-    private int listTop() { return isConfigs() ? ly + 42 : ly; }
+    /** Модули текущей вкладки или, при поиске, все подходящие по названию или настройке (любая вкладка). */
+    private List<Module> shownModules() {
+        if (query.isBlank()) {
+            Tab t = current();
+            return t == null ? List.of() : t.modules;
+        }
+        String q = query.trim().toLowerCase(Locale.ROOT);
+        List<Module> out = new ArrayList<>();
+        for (Module m : ModuleManager.MODULES) if (matchesSearch(m, q)) out.add(m);
+        return out;
+    }
+
+    private static boolean matchesSearch(Module m, String q) {
+        if (m.id.contains(q) || m.fallbackName.toLowerCase(Locale.ROOT).contains(q)) return true;
+        if (Text.translatableWithFallback("swinganimations.module." + m.id, m.fallbackName).getString().toLowerCase(Locale.ROOT).contains(q)) return true;
+        for (Setting s : m.settings) {
+            String label = Text.translatableWithFallback("swinganimations.setting." + m.id + "." + s.id, s.fallback).getString();
+            if (label.toLowerCase(Locale.ROOT).contains(q)) return true;
+        }
+        return false;
+    }
+
+    private int listTop() { return isConfigs() ? ly + 42 : ly + 26; }
 
     private int viewH() { return Math.max(10, lb - listTop()); }
 
@@ -224,10 +253,9 @@ public class ClickGuiScreen extends Screen {
         if (isConfigs()) {
             contentH = cfgs.isEmpty() ? 0 : cfgs.size() * 39 - 5;
         } else {
-            Tab t = current();
             int y = 0;
-            if (t != null) {
-                for (Module m : t.modules) {
+            {
+                for (Module m : shownModules()) {
                     int start = y;
                     y = add(new Row(Kind.MODULE, m, null, 24), y);
                     if (expanded.contains(m)) {
@@ -239,7 +267,7 @@ public class ClickGuiScreen extends Screen {
                             else if (s instanceof Setting.Num) y = add(new Row(Kind.NUM, m, s, 26), y);
                         }
                         if (m.hasExtraButton()) y = add(new Row(Kind.BUTTON, m, null, 20), y);
-                        y = add(new Row(Kind.BIND, m, null, 18), y);
+                        if (!m.lockedOn()) y = add(new Row(Kind.BIND, m, null, 18), y);
                         y += 4;
                     }
                     blocks.add(new Block(m, start, y - start));
@@ -311,9 +339,13 @@ public class ClickGuiScreen extends Screen {
 
         drawSidebar(ctx, mx, my, rgb);
         drawHeader(ctx, rgb);
+        if (!isConfigs()) drawSearch(ctx, mx, my, delta, rgb);
         ctx.enableScissor(lx - 4, listTop(), lx + lw + 4, lb);
         if (isConfigs()) drawCfgList(ctx, mx, my, rgb);
-        else drawModules(ctx, mx, my, rgb);
+        else {
+            drawModules(ctx, mx, my, rgb);
+            if (shownModules().isEmpty()) Hud.text(ctx, tr("ui.search_empty", "Nothing found"), lx + 8, listTop() + 6, Ui.TEXT_DIM);
+        }
         ctx.disableScissor();
         if (isConfigs()) drawCfgTop(ctx, mx, my, delta, rgb);
         drawScrollbar(ctx, rgb);
@@ -393,6 +425,13 @@ public class ClickGuiScreen extends Screen {
     }
 
     private int cfgCount() { return cfgs.size(); }
+
+    private void setQuery(String q) {
+        if (q.equals(query)) return;
+        query = q;
+        scroll = 0f;
+        scrollTarget = 0f;
+    }
 
     private void selectTab(Tab t) {
         if (t.id.equals(selected)) return;
@@ -560,6 +599,16 @@ public class ClickGuiScreen extends Screen {
         if (!inList || (y + h > listTop() && y < lb)) hits.add(new Hit(x, y, w, h, action));
     }
 
+    /** Поле поиска над списком модулей (не прокручивается). */
+    private void drawSearch(DrawContext ctx, int mx, int my, float delta, int rgb) {
+        Ui.rect(ctx, lx, ly, lw, 20, 6, Batch.argb(0xFFFFFF, 0.07f));
+        Ui.outline(ctx, lx, ly, lw, 20, 6, searchField.isFocused() ? Ui.ACCENT_LINE : Batch.argb(0xFFFFFF, 0.10f));
+        if (searchField.getText().isEmpty() && !searchField.isFocused()) {
+            Hud.text(ctx, tr("ui.search_hint", "Search modules and settings..."), lx + 8, ly + 6, 0x70BEC3CD);
+        }
+        searchField.render(ctx, mx, my, delta);
+    }
+
     /** Поле имени, кнопка «Сохранить» и подпись списка (не прокручиваются). */
     private void drawCfgTop(DrawContext ctx, int mx, int my, float delta, int rgb) {
         int saveW = 78;
@@ -697,6 +746,14 @@ public class ClickGuiScreen extends Screen {
                 }
             }
         }
+        if (!isConfigs()) {
+            boolean inSearch = mx >= lx && mx < lx + lw && my >= ly && my < ly + 20;
+            if (button == 0) searchField.setFocused(inSearch);
+            if (inSearch) {
+                searchField.mouseClicked(mx, my, button);
+                return true;
+            }
+        }
         if (isConfigs()) {
             boolean inField = mx >= fieldX && mx < fieldX + fieldW && my >= ly && my < ly + 20;
             nameField.setFocused(inField);
@@ -820,6 +877,15 @@ public class ClickGuiScreen extends Screen {
             ModuleManager.save();
             return true;
         }
+        if (!isConfigs() && searchField != null && searchField.isFocused()) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                searchField.setFocused(false);
+            } else {
+                searchField.keyPressed(keyCode, scanCode, modifiers);
+                setQuery(searchField.getText());
+            }
+            return true;
+        }
         if (isConfigs() && nameField != null && nameField.isFocused()) {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 nameField.setFocused(false);
@@ -840,6 +906,11 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     public boolean charTyped(char chr, int modifiers) {
+        if (!isConfigs() && searchField != null && searchField.isFocused()) {
+            boolean ok = searchField.charTyped(chr, modifiers);
+            setQuery(searchField.getText());
+            return ok;
+        }
         if (isConfigs() && nameField != null && nameField.isFocused()) {
             boolean ok = nameField.charTyped(chr, modifiers);
             nameDraft = nameField.getText();

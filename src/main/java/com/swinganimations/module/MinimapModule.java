@@ -7,6 +7,10 @@ import com.swinganimations.gui.Ui;
 import com.swinganimations.link.ClientLink;
 import com.swinganimations.render.Batch;
 import com.swinganimations.util.Perf;
+import com.swinganimations.util.UserWaypoints;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.util.math.RotationAxis;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.MapColor;
 import net.minecraft.client.MinecraftClient;
@@ -86,6 +90,18 @@ public final class MinimapModule extends Module {
     private final Setting.Bool cartEdge = add(new Setting.Bool("cart_edge", "Chest carts beyond range at the edge", true));
     private final Setting.Bool cartDistance = add(new Setting.Bool("cart_distance", "Distance to chest carts and boats", true));
     private final Setting.Num iconScale = add(new Setting.Num("icon_scale", "Icon scale", 1.25f, 1f, 2f, 0.25f));
+    private final Setting.Num dotSize = add(new Setting.Num("dot_size", "Entity dot size", 2f, 1f, 5f, 1f));
+    private final Setting.Mode dotStyle = add(new Setting.Mode("dot_style", "Dot style", "Square", "Round", "Arrow"));
+    private final Setting.Bool playerHeads = add(new Setting.Bool("player_heads", "Player heads", false));
+    private final Setting.Num headSize = add(new Setting.Num("head_size", "Head size", 8f, 6f, 14f, 1f).<Setting.Num>visibleWhen(() -> playerHeads.value));
+    private final Setting.Mode names = add(new Setting.Mode("names", "Names", "Off", "Players", "All"));
+    private final Setting.Num heightFilter = add(new Setting.Num("height_filter", "Height filter (0 = off)", 0f, 0f, 128f, 4f));
+    private final Setting.Bool heightHint = add(new Setting.Bool("height_hint", "Above/below markers", true));
+    private final Setting.Num maxEntities = add(new Setting.Num("max_entities", "Max entities", 300f, 50f, 1000f, 50f));
+    private final Setting.Mode caveZoom = add(new Setting.Mode("cave_zoom", "Zoom in caves", "Off", "2x", "3x"));
+    private final Setting.Bool chunkGrid = add(new Setting.Bool("chunk_grid", "Chunk grid", false));
+    private final Setting.Bool userWaypoints = add(new Setting.Bool("user_waypoints", "My waypoints (key B)", true));
+    private final Setting.Bool waypointNames = add(new Setting.Bool("waypoint_names", "Waypoint names and distance", true));
     private final Setting.Bool waypoints = add(new Setting.Bool("waypoints", "Markers (events, death)", true));
     private final Setting.Bool compass = add(new Setting.Bool("compass", "Compass letters", true));
     private final Setting.Bool coords = add(new Setting.Bool("coords", "Coordinates", true));
@@ -104,9 +120,12 @@ public final class MinimapModule extends Module {
     private int ticks;
     private double lastBuildX = Double.NaN, lastBuildZ = Double.NaN;
     private String biome = "";
+    private float curRange = 48f; // дальность с учётом приближения в пещерах
+    private int caveHold;
 
     public MinimapModule() {
         super("minimap", "Minimap", "hud");
+        caveZoom.index = 1; // по умолчанию 2x, как у Xaero
     }
 
     @Override
@@ -147,13 +166,21 @@ public final class MinimapModule extends Module {
     public void tick(MinecraftClient mc) {
         ClientPlayerEntity p = mc.player;
         if (p == null || mc.world == null) return;
+        // Приближение под землёй: с задержкой, чтобы карта не дёргалась на границе открытого неба
+        int zf = caveZoom.is("2x") ? 2 : (caveZoom.is("3x") ? 3 : 1);
+        if (zf > 1 && !mc.world.getDimension().hasCeiling() && !mc.world.isSkyVisible(p.getBlockPos())) {
+            if (caveHold < 20) caveHold++;
+        } else if (caveHold > 0) {
+            caveHold--;
+        }
+        curRange = MathHelper.clamp(zf > 1 && caveHold >= 10 ? range.value / zf : range.value, 8f, 160f);
         int every = Perf.quality() == 0 ? 4 : 8;
         // В Нижнем мире на каждый пиксель до 48 шагов вниз по блокам: строим вдвое реже.
         if (mc.world.getDimension().hasCeiling()) every *= 2;
         // Стоим на месте: карта почти не меняется (только подгружаются чанки), хватает раза в 1,5 с.
         double mdx = p.getX() - lastBuildX, mdz = p.getZ() - lastBuildZ;
         if (!(mdx * mdx + mdz * mdz > 0.25)) every = Math.max(every, 30);
-        if (++ticks >= every || Math.abs(range.value - builtRange) > 0.01f || tex == null) {
+        if (++ticks >= every || Math.abs(curRange - builtRange) > 0.01f || tex == null) {
             ticks = 0;
             rebuild(mc);
         }
@@ -168,7 +195,7 @@ public final class MinimapModule extends Module {
         ClientPlayerEntity p = mc.player;
         if (w == null || p == null) return;
         ensureTexture(mc);
-        float r = range.value;
+        float r = curRange;
         float halfExtent = r * 1.45f + 4f;
         texPPB = (T / 2f) / halfExtent;
         builtRange = r;
@@ -297,7 +324,7 @@ public final class MinimapModule extends Module {
         int y = 8;
         float cx = x + r;
         float cy = y + r;
-        float scale = r / range.value;
+        float scale = r / curRange;
         boolean rot = rotate.value;
         float yawRad = (float) Math.toRadians(p.getYaw(tickDelta));
         float c = (float) Math.cos(yawRad);
@@ -309,6 +336,7 @@ public final class MinimapModule extends Module {
         Matrix4f m = ctx.getMatrices().peek().getPositionMatrix();
         drawMap(m, cx, cy, r, circle, opacity.value, rot, c, s, pp.x, pp.z, scale);
         drawBorder(ctx, m, x, y, sz, cx, cy, r, circle);
+        if (chunkGrid.value) drawChunkGrid(m, cx, cy, r, circle, rot, c, s, pp.x, pp.z, scale);
 
         // метки
         if (waypoints.value) {
@@ -317,6 +345,12 @@ public final class MinimapModule extends Module {
                 for (WaypointSource.Waypoint wp : src.waypoints()) {
                     drawWaypoint(ctx, wp, pp.x, pp.z, cx, cy, r, circle, rot, c, s, scale);
                 }
+            }
+        }
+        if (waypoints.value && userWaypoints.value) {
+            for (UserWaypoints.Pt pt : UserWaypoints.list(mc)) {
+                drawWaypoint(ctx, new WaypointSource.Waypoint(pt.x, pt.y, pt.z, pt.name, pt.rgb, false),
+                        pp.x, pp.z, cx, cy, r, circle, rot, c, s, scale);
             }
         }
         // сущности
@@ -484,6 +518,13 @@ public final class MinimapModule extends Module {
                 int w = 2 - Math.abs(i);
                 ctx.fill(px - w, py + i, px + w + 1, py + i + 1, col);
             }
+            if (waypointNames.value) {
+                String nm = wp.name() == null ? "" : wp.name();
+                if (nm.length() > 16) nm = nm.substring(0, 15) + ".";
+                String dist = Text.translatableWithFallback("swinganimations.minimap.dist", "%sm",
+                        Math.round(Math.hypot(wp.x() - ppx, wp.z() - ppz))).getString();
+                label(ctx, nm.isEmpty() ? dist : nm + " " + dist, px, py + 5, wp.rgb());
+            }
         }
     }
 
@@ -491,16 +532,19 @@ public final class MinimapModule extends Module {
                               float cx, float cy, float r, boolean circle, boolean rot, float c, float s, float scale) {
         boolean carts = chestCart.value || hopperCart.value || tntCart.value || otherCart.value || chestBoat.value || primedTnt.value;
         if (!players.value && !hostile.value && !passive.value && !items.value && !carts) return;
-        float rr = range.value;
+        float rr = curRange;
         long now = System.currentTimeMillis();
-        int budget = 300;
+        int budget = (int) maxEntities.value;
+        int labels = 0;
+        double selfY = self.getY();
+        float hf = heightFilter.value;
         for (Entity e : mc.world.getEntities()) {
             if (e == self || e.isSpectator()) continue;
             if (--budget < 0) break;
             // 0 точка, 1 сундук-вагонетка, 2 воронка, 3 TNT-вагонетка, 4 другая вагонетка, 5 лодка с сундуком, 6 горящий TNT
             int kind = 0;
             int col = 0;
-            int dotSize = 2;
+            int dotSize = (int) this.dotSize.value;
             var type = e.getType();
             if (type == EntityType.CHEST_MINECART) {
                 if (!chestCart.value) continue;
@@ -524,13 +568,13 @@ public final class MinimapModule extends Module {
                 continue;
             } else if (e instanceof PlayerEntity pl) {
                 if (!players.value) continue;
-                boolean friend = ModuleManager.entityEsp != null && ModuleManager.entityEsp.isFriend(pl.getName().getString());
+                boolean friend = ModuleManager.hitboxes != null && ModuleManager.hitboxes.isFriend(pl.getName().getString());
                 if (playersFilter.is("Friends only") && !friend) continue;
                 if (playersFilter.is("Enemies only") && friend) continue;
                 if (friend) col = DOT_FRIEND;
                 else if (ClientLink.isLinked(pl.getUuid())) col = Ui.ACCENT & 0xFFFFFF;
                 else col = DOT_PLAYER[0];
-                dotSize = 3;
+                dotSize = (int) this.dotSize.value + 1;
             } else if (e instanceof Monster) {
                 if (!hostile.value) continue;
                 col = DOT_HOSTILE;
@@ -540,11 +584,12 @@ public final class MinimapModule extends Module {
             } else if (e instanceof ItemEntity) {
                 if (!items.value) continue;
                 col = DOT_ITEM;
-                dotSize = 1;
+                dotSize = Math.max(1, (int) this.dotSize.value - 1);
             } else {
                 continue;
             }
             var ep = e.getLerpedPos(td);
+            if (hf > 0f && kind == 0 && Math.abs(ep.y - selfY) > hf) continue;
             double dx = ep.x - ppx, dz = ep.z - ppz;
             double dist2 = dx * dx + dz * dz;
             float[] o = toScreen(dx, dz, rot, c, s, scale);
@@ -559,9 +604,16 @@ public final class MinimapModule extends Module {
             int px = Math.round(cx + o[0]);
             int py = Math.round(cy + o[1]);
             if (kind == 0) {
-                int h = dotSize / 2;
-                ctx.fill(px - h - 1, py - h - 1, px - h + dotSize + 1, py - h + dotSize + 1, 0xAA000000);
-                ctx.fill(px - h, py - h, px - h + dotSize, py - h + dotSize, 0xFF000000 | col);
+                boolean isItem = e instanceof ItemEntity;
+                drawDot(ctx, e, px, py, dotSize, col, isItem, td, rot, c, s);
+                if (heightHint.value && !isItem) {
+                    double dy = ep.y - selfY;
+                    if (dy > 4.0 || dy < -4.0) heightMark(ctx, px, py, dotSize, dy > 0, col);
+                }
+                if (!isItem && labels < 24 && (names.is("All") || (names.is("Players") && e instanceof PlayerEntity))) {
+                    labels++;
+                    label(ctx, e.getName().getString(), px, py + dotSize / 2 + 3, col);
+                }
                 continue;
             }
             drawIcon(ctx, kind, px, py, now);
@@ -572,6 +624,183 @@ public final class MinimapModule extends Module {
                 Hud.text(ctx, t, tx, py - 4, 0xFFFFE066);
             }
         }
+    }
+
+    // ---------------- точки сущностей ----------------
+
+    private void drawDot(DrawContext ctx, Entity e, int px, int py, int ds, int col, boolean item,
+                         float td, boolean rot, float c, float s) {
+        if (!item && playerHeads.value && e instanceof AbstractClientPlayerEntity acp) {
+            int hs = (int) headSize.value;
+            int x0 = px - hs / 2, y0 = py - hs / 2;
+            ctx.fill(x0 - 1, y0 - 1, x0 + hs + 1, y0 + hs + 1, 0xFF000000 | col);
+            Identifier skin = acp.getSkinTextures().texture();
+            ctx.drawTexture(RenderLayer::getGuiTextured, skin, x0, y0, 8f, 8f, hs, hs, 8, 8, 64, 64);   // лицо
+            ctx.drawTexture(RenderLayer::getGuiTextured, skin, x0, y0, 40f, 8f, hs, hs, 8, 8, 64, 64);  // второй слой (шапка)
+            return;
+        }
+        if (item || dotStyle.is("Square")) {
+            int h = ds / 2;
+            ctx.fill(px - h - 1, py - h - 1, px - h + ds + 1, py - h + ds + 1, 0xAA000000);
+            ctx.fill(px - h, py - h, px - h + ds, py - h + ds, 0xFF000000 | col);
+            return;
+        }
+        if (dotStyle.is("Round")) {
+            float rr = ds / 2f + 0.75f;
+            float out = rr + 1f;
+            int R = (int) Math.ceil(out);
+            for (int dy = -R; dy <= R; dy++) {
+                if (Math.abs(dy) <= out) {
+                    int w = (int) Math.floor(Math.sqrt(Math.max(0f, out * out - dy * dy)));
+                    ctx.fill(px - w, py + dy, px + w + 1, py + dy + 1, 0xAA000000);
+                }
+            }
+            for (int dy = -R; dy <= R; dy++) {
+                if (Math.abs(dy) <= rr) {
+                    int w = (int) Math.floor(Math.sqrt(Math.max(0f, rr * rr - dy * dy)));
+                    ctx.fill(px - w, py + dy, px + w + 1, py + dy + 1, 0xFF000000 | col);
+                }
+            }
+            return;
+        }
+        // Arrow: стрелка по направлению взгляда существа (с учётом вращения карты)
+        double yaw = Math.toRadians(e.getYaw(td));
+        float[] u = toScreen(-Math.sin(yaw), Math.cos(yaw), rot, c, s, 1f);
+        float ang = (float) Math.atan2(u[0], -u[1]);
+        var m = ctx.getMatrices();
+        m.push();
+        m.translate(px, py, 0f);
+        m.multiply(RotationAxis.POSITIVE_Z.rotation(ang));
+        int L = ds + 2;
+        for (int y = -L; y <= L / 2 + 1; y++) {
+            int w = (y + L) / 2;
+            ctx.fill(-w - 1, y, w + 2, y + 1, 0xAA000000);
+        }
+        for (int y = -L + 1; y <= L / 2; y++) {
+            int w = (y + L - 1) / 2;
+            ctx.fill(-w, y, w + 1, y + 1, 0xFF000000 | col);
+        }
+        m.pop();
+    }
+
+    /** Маленький треугольник над точкой (цель выше нас) или под ней (ниже). */
+    private static void heightMark(DrawContext ctx, int px, int py, int ds, boolean up, int col) {
+        int off = ds / 2 + 3;
+        int cy = up ? py - off : py + off;
+        int tip = up ? cy - 1 : cy + 1;
+        int c = 0xFF000000 | col;
+        ctx.fill(px, tip, px + 1, tip + 1, c);
+        ctx.fill(px - 1, cy, px + 2, cy + 1, c);
+    }
+
+    /** Подпись по центру точки: мелкий текст на тёмной подложке. */
+    private void label(DrawContext ctx, String t, int px, int py, int col) {
+        if (t == null || t.isEmpty()) return;
+        if (t.length() > 18) t = t.substring(0, 17) + ".";
+        int w = Hud.w(t);
+        var m = ctx.getMatrices();
+        m.push();
+        m.translate(px, py, 0f);
+        m.scale(0.7f, 0.7f, 1f);
+        ctx.fill(-w / 2 - 2, -1, w / 2 + w % 2 + 2, 9, 0x66000000);
+        Hud.text(ctx, t, -w / 2, 0, 0xFF000000 | (col & 0xFFFFFF));
+        m.pop();
+    }
+
+    // ---------------- сетка чанков ----------------
+
+    /** Границы чанков (каждые 16 блоков) тонкими линиями, обрезанными по кругу или квадрату карты. */
+    private void drawChunkGrid(Matrix4f m, float cx, float cy, float r, boolean circle, boolean rot,
+                               float c, float s, double ppx, double ppz, float scale) {
+        float ext = (r / scale) * 1.5f + 2f;
+        int x0 = MathHelper.floor((ppx - ext) / 16.0), x1 = MathHelper.floor((ppx + ext) / 16.0) + 1;
+        int z0 = MathHelper.floor((ppz - ext) / 16.0), z1 = MathHelper.floor((ppz + ext) / 16.0) + 1;
+        Batch.begin(false, false);
+        Batch b = Batch.triangles();
+        int col = 0x3AFFFFFF;
+        for (int gx = x0; gx <= x1; gx++) {
+            double wx = gx * 16.0 - ppx;
+            gridLine(b, m, cx, cy, r, circle, toScreen(wx, -ext, rot, c, s, scale), toScreen(wx, ext, rot, c, s, scale), col);
+        }
+        for (int gz = z0; gz <= z1; gz++) {
+            double wz = gz * 16.0 - ppz;
+            gridLine(b, m, cx, cy, r, circle, toScreen(-ext, wz, rot, c, s, scale), toScreen(ext, wz, rot, c, s, scale), col);
+        }
+        b.flush();
+        Batch.end();
+    }
+
+    private static void gridLine(Batch b, Matrix4f m, float cx, float cy, float r, boolean circle,
+                                 float[] p, float[] q, int col) {
+        float x0 = p[0], y0 = p[1];
+        float dx = q[0] - x0, dy = q[1] - y0;
+        float t0 = 0f, t1 = 1f;
+        if (circle) {
+            float a = dx * dx + dy * dy;
+            if (a < 1e-6f) return;
+            float bq = 2f * (x0 * dx + y0 * dy);
+            float cc = x0 * x0 + y0 * y0 - r * r;
+            float disc = bq * bq - 4f * a * cc;
+            if (disc <= 0f) return;
+            float sq = (float) Math.sqrt(disc);
+            t0 = Math.max(0f, (-bq - sq) / (2f * a));
+            t1 = Math.min(1f, (-bq + sq) / (2f * a));
+        } else { // Лян-Барский по квадрату [-r, r]
+            float[] pp = {-dx, dx, -dy, dy};
+            float[] qq = {x0 + r, r - x0, y0 + r, r - y0};
+            for (int k = 0; k < 4; k++) {
+                if (Math.abs(pp[k]) < 1e-6f) {
+                    if (qq[k] < 0f) return;
+                } else {
+                    float t = qq[k] / pp[k];
+                    if (pp[k] < 0f) {
+                        if (t > t1) return;
+                        if (t > t0) t0 = t;
+                    } else {
+                        if (t < t0) return;
+                        if (t < t1) t1 = t;
+                    }
+                }
+            }
+        }
+        if (t1 - t0 < 0.001f) return;
+        float ax = x0 + dx * t0, ay = y0 + dy * t0;
+        float bx = x0 + dx * t1, by = y0 + dy * t1;
+        float len = (float) Math.hypot(bx - ax, by - ay);
+        if (len < 0.5f) return;
+        float nx = -(by - ay) / len * 0.5f, ny = (bx - ax) / len * 0.5f;
+        b.v(m, cx + ax - nx, cy + ay - ny, 0, col);
+        b.v(m, cx + ax + nx, cy + ay + ny, 0, col);
+        b.v(m, cx + bx + nx, cy + by + ny, 0, col);
+        b.v(m, cx + ax - nx, cy + ay - ny, 0, col);
+        b.v(m, cx + bx + nx, cy + by + ny, 0, col);
+        b.v(m, cx + bx - nx, cy + by - ny, 0, col);
+    }
+
+    // ---------------- свои метки ----------------
+
+    /** Ставит метку на текущую позицию игрока (клавиша из «Управления»). */
+    public void addWaypointHere(MinecraftClient mc) {
+        ClientPlayerEntity p = mc.player;
+        if (p == null || mc.world == null) return;
+        String name = Text.translatableWithFallback("swinganimations.minimap.mark_default", "Mark %s",
+                UserWaypoints.list(mc).size() + 1).getString();
+        UserWaypoints.add(mc, name, p.getX(), p.getY(), p.getZ());
+        if (mc.inGameHud != null) {
+            mc.inGameHud.setOverlayMessage(Text.translatableWithFallback("swinganimations.minimap.mark_added",
+                    "Waypoint \"%s\" added", name), false);
+        }
+    }
+
+    /** Удаляет ближайшую свою метку в радиусе 12 блоков. */
+    public void removeNearestWaypoint(MinecraftClient mc) {
+        ClientPlayerEntity p = mc.player;
+        if (p == null || mc.world == null) return;
+        UserWaypoints.Pt gone = UserWaypoints.removeNearest(mc, p.getX(), p.getZ(), 12.0);
+        if (mc.inGameHud == null) return;
+        mc.inGameHud.setOverlayMessage(gone != null
+                ? Text.translatableWithFallback("swinganimations.minimap.mark_removed", "Waypoint \"%s\" removed", gone.name)
+                : Text.translatableWithFallback("swinganimations.minimap.mark_none", "No waypoints nearby"), false);
     }
 
     /** Значки техники и сундуков 7x5 пикселей, масштабируются настройкой «Icon scale». */

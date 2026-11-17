@@ -29,6 +29,8 @@ public final class KeyBinds {
     public static KeyBinding MUSIC_PREV;
     public static KeyBinding MINIMAP_ZOOM_IN;
     public static KeyBinding MINIMAP_ZOOM_OUT;
+    public static KeyBinding MINIMAP_MARK;
+    public static KeyBinding MINIMAP_UNMARK;
     private static boolean freeLookDown;
 
     private KeyBinds() {}
@@ -49,6 +51,8 @@ public final class KeyBinds {
         MUSIC_PREV = reg("music_prev", GLFW.GLFW_KEY_UNKNOWN);
         MINIMAP_ZOOM_IN = reg("minimap_zoom_in", GLFW.GLFW_KEY_RIGHT_BRACKET);
         MINIMAP_ZOOM_OUT = reg("minimap_zoom_out", GLFW.GLFW_KEY_LEFT_BRACKET);
+        MINIMAP_MARK = reg("minimap_mark", GLFW.GLFW_KEY_B);
+        MINIMAP_UNMARK = reg("minimap_unmark", GLFW.GLFW_KEY_UNKNOWN);
         FREE_LOOK = reg("free_look", GLFW.GLFW_KEY_UNKNOWN);  // обычная клавиша управления: работает и на Android (Pojav)
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
     }
@@ -74,7 +78,7 @@ public final class KeyBinds {
             if (ev != null && mc.currentScreen == null) ev.openSearch();
         }
         musicKeys(mc);
-        minimapKeys();
+        minimapKeys(mc);
         SwingConfig cfg = ConfigManager.get();
         while (TOGGLE.wasPressed()) {
             cfg.enabled = !cfg.enabled;
@@ -116,7 +120,7 @@ public final class KeyBinds {
     /** Добавить или убрать друга: игрок в прицеле. */
     private static void friendKey(MinecraftClient mc) {
         while (FRIEND.wasPressed()) {
-            com.swinganimations.module.EntityEspModule esp = com.swinganimations.module.ModuleManager.entityEsp;
+            com.swinganimations.module.HitboxesModule esp = com.swinganimations.module.ModuleManager.hitboxes;
             if (esp == null || mc.player == null) continue;
             if (mc.targetedEntity instanceof net.minecraft.entity.player.PlayerEntity p) {
                 String n = p.getName().getString();
@@ -144,13 +148,19 @@ public final class KeyBinds {
         }
     }
 
-    private static void minimapKeys() {
+    private static void minimapKeys(MinecraftClient mc) {
         com.swinganimations.module.MinimapModule mm = com.swinganimations.module.ModuleManager.minimap;
         while (MINIMAP_ZOOM_IN.wasPressed()) {
             if (mm != null && mm.isEnabled()) mm.zoom(-8f);
         }
         while (MINIMAP_ZOOM_OUT.wasPressed()) {
             if (mm != null && mm.isEnabled()) mm.zoom(8f);
+        }
+        while (MINIMAP_MARK.wasPressed()) {
+            if (mm != null && mm.isEnabled() && mc.currentScreen == null && mc.player != null) mm.addWaypointHere(mc);
+        }
+        while (MINIMAP_UNMARK.wasPressed()) {
+            if (mm != null && mm.isEnabled() && mc.currentScreen == null && mc.player != null) mm.removeNearestWaypoint(mc);
         }
     }
 

@@ -46,7 +46,7 @@ public final class ModuleManager {
     public static BlockOutlineModule blockOutline;
     public static RemovalsModule removals;
     public static KillEffectModule killEffect;
-    public static EntityEspModule entityEsp;
+    public static HitboxesModule hitboxes;
     public static GlowHandModule glowHand;
     public static EventHudModule eventHud;
     public static MusicModule music;
@@ -73,8 +73,8 @@ public final class ModuleManager {
         performance = new PerformanceModule();
         MODULES.add(performance);
         MODULES.add(new TargetEspModule());
-        entityEsp = new EntityEspModule();
-        MODULES.add(entityEsp);
+        hitboxes = new HitboxesModule();
+        MODULES.add(hitboxes);
         glowHand = new GlowHandModule();
         MODULES.add(glowHand);
         eventHud = new EventHudModule();
@@ -247,6 +247,14 @@ public final class ModuleManager {
      * full = true (загрузка конфига): модули, выключенные в конфиге, ещё и выключаются.
      */
     private static void apply(Map<String, Saved> in, boolean full) {
+        // Миграция: список друзей раньше жил в модуле EntityESP (он удалён), теперь в Hitboxes
+        Saved legacy = in.get("entity_esp");
+        if (legacy != null && !in.containsKey("hitboxes") && legacy.values != null && legacy.values.containsKey("friend_list")) {
+            Saved migrated = new Saved();
+            migrated.values.put("friend_list", legacy.values.get("friend_list"));
+            in = new LinkedHashMap<>(in);
+            in.put("hitboxes", migrated);
+        }
         for (Module m : MODULES) {
             Saved s = in.get(m.id);
             if (s == null) continue;

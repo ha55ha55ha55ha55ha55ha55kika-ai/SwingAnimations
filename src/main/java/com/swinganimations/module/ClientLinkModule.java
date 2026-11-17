@@ -28,7 +28,6 @@ public final class ClientLinkModule extends Module {
     private static final String DEFAULT_RELAY_URL = "http://78.154.103.37:14682";
     private static final String DEFAULT_RELAY_TOKEN = "VpVSfC7r5xW9VlS2zCMwIVM9";
 
-    private final Setting.Bool share = add(new Setting.Bool("share", "Share that I use the client", true));
     private final Setting.Bool shareMusic = add(new Setting.Bool("share_music", "Share what I listen to", true));
     private final Setting.Bool badgeName = add(new Setting.Bool("badge_name", "Badge by nick", true));
     private final Setting.Bool badgeChat = add(new Setting.Bool("badge_chat", "Badge in chat", true));
@@ -46,6 +45,7 @@ public final class ClientLinkModule extends Module {
 
     public ClientLinkModule() {
         super("client_link", "ClientLink", "hud");
+        enabled = true; // включён с самого старта
     }
 
     @Override
@@ -53,7 +53,20 @@ public final class ClientLinkModule extends Module {
         tagged.clear();
     }
 
-    public boolean sharing() { return share.value; }
+    /** Значок клиента всегда виден другим (отключить нельзя). */
+    public boolean sharing() { return true; }
+
+    @Override
+    public boolean lockedOn() { return true; }
+
+    /** Модуль всегда включён: любые попытки выключить его игнорируются. */
+    @Override
+    public void setEnabled(boolean v) {
+        if (!enabled) {
+            enabled = true;
+            onEnable();
+        }
+    }
 
     public boolean sharingMusic() { return shareMusic.value; }
 
