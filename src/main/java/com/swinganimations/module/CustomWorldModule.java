@@ -9,10 +9,9 @@ import net.minecraft.util.math.Vec3d;
  *   <li>Время суток: день, полдень, закат, ночь, полночь, рассвет или своё значение в часах.
  *       Меняется то, что видите вы (небо, солнце, освещение), сервер и другие игроки не затрагиваются.</li>
  *   <li>Оттенок неба: меняет цвет (hue), насыщенность и силу, сохраняя яркость времени суток.</li>
- *   <li>Fullbright: максимальная яркость без зелий и без изменения настроек яркости.</li>
  *   <li>Ясная погода: без дождя и грозы на экране.</li>
  * </ul>
- * Сами значения подменяют миксины (WorldMixin, ClientWorldMixin, SimpleOptionMixin).
+ * Сами значения подменяют миксины (WorldMixin, ClientWorldMixin). Fullbright вынесен в отдельный модуль.
  */
 public final class CustomWorldModule extends Module {
     private static final String[] TIMES = {"Off", "Day", "Noon", "Sunset", "Night", "Midnight", "Sunrise", "Custom"};
@@ -21,7 +20,6 @@ public final class CustomWorldModule extends Module {
     private final Setting.Mode time = add(new Setting.Mode("time", "Time of day", TIMES));
     private final Setting.Num hours = add(new Setting.Num("hours", "Hour (0-24)", 12f, 0f, 24f, 0.5f)
             .<Setting.Num>visibleWhen(() -> this.time.is("Custom")));
-    private final Setting.Bool fullbright = add(new Setting.Bool("fullbright", "Fullbright", false));
     private final Setting.Bool clearWeather = add(new Setting.Bool("clear_weather", "Clear weather", false));
     private final Setting.Bool sky = add(new Setting.Bool("sky", "Sky tint", false));
     private static final String[] PRESETS = {"Red", "Orange", "Yellow", "Lime", "Green", "Teal", "Cyan", "Blue", "Purple", "Pink", "Custom"};
@@ -48,8 +46,6 @@ public final class CustomWorldModule extends Module {
         }
         return TICKS[time.index];
     }
-
-    public boolean fullbrightOn() { return isEnabled() && fullbright.value; }
 
     public boolean clearWeatherOn() { return isEnabled() && clearWeather.value; }
 

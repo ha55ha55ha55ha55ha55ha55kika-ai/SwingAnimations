@@ -175,7 +175,6 @@
   "swinganimations.setting.particles.only_real": "Only real hits",
   "swinganimations.setting.custom_world.time": "Time of day",
   "swinganimations.setting.custom_world.hours": "Hour (0-24)",
-  "swinganimations.setting.custom_world.fullbright": "Fullbright",
   "swinganimations.setting.custom_world.clear_weather": "Clear weather",
   "swinganimations.setting.custom_world.sky": "Sky tint",
   "swinganimations.setting.custom_world.hue": "Hue",
@@ -364,7 +363,6 @@
   "swinganimations.module.performance": "Performance",
   "swinganimations.module.client_link": "ClientLink",
   "swinganimations.module.item_scroller": "ItemScroller",
-  "swinganimations.module.no_jump_delay": "NoJumpDelay",
   "swinganimations.module.removals": "Removals",
   "swinganimations.module.theme": "Theme",
   "swinganimations.module.auto_sprint": "AutoSprint",
@@ -399,5 +397,13 @@
   "swinganimations.setting.minimap.mob_heads": "Mob head icons",
   "swinganimations.setting.minimap.mob_icon_size": "Mob icon size",
   "swinganimations.setting.minimap.item_icons": "Dropped items as icons",
-  "swinganimations.setting.minimap.arrow_size": "My arrow size"
+  "swinganimations.setting.minimap.arrow_size": "My arrow size",
+  "swinganimations.setting.event_hud.nav_card": "Navigation card",
+  "swinganimations.setting.death_marker.nav_card": "Navigation card",
+  "swinganimations.nav.dist": "%s m",
+  "swinganimations.nav.above": "above",
+  "swinganimations.nav.below": "below",
+  "swinganimations.nav.target": "Waypoint",
+  "swinganimations.setting.event_hud.keep_markers": "Keep markers while module is off",
+  "swinganimations.module.fullbright": "Fullbright"
 }

@@ -52,6 +52,15 @@ public abstract class Module {
     /** true: модуль всегда включён и его нельзя выключить (ни кнопкой, ни клавишей, ни конфигом). */
     public boolean lockedOn() { return false; }
 
+    /**
+     * true: модуль выключен, но ещё что-то показывает (например, метки до конца срока).
+     * Тогда ModuleManager продолжает звать render() и renderHudIdle(), пока здесь не вернётся false.
+     */
+    public boolean keepsRunning() { return false; }
+
+    /** HUD, который рисуется, пока модуль выключен, но keepsRunning() == true (обычно только метки). */
+    public void renderHudIdle(DrawContext ctx, float tickDelta) { }
+
     public void onEnable() { }
 
     public void onDisable() { }

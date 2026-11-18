@@ -37,7 +37,7 @@ public final class ModuleManager {
     public static ThemeModule theme;
     public static LockSlotModule lockSlot;
     public static ItemScrollerModule itemScroller;
-    public static NoJumpDelayModule noJumpDelay;
+    public static FullbrightModule fullbright;
     public static PerformanceModule performance;
     public static ItemPhysicsModule itemPhysics;
     public static CrosshairModule crosshair;
@@ -116,8 +116,8 @@ public final class ModuleManager {
         MODULES.add(new AutoSprintModule());
         freeLook = new FreeLookModule();
         MODULES.add(freeLook);
-        noJumpDelay = new NoJumpDelayModule();
-        MODULES.add(noJumpDelay);
+        fullbright = new FullbrightModule();
+        MODULES.add(fullbright);
         lockSlot = new LockSlotModule();
         MODULES.add(lockSlot);
         itemScroller = new ItemScrollerModule();
@@ -176,8 +176,18 @@ public final class ModuleManager {
     private static void renderHud(net.minecraft.client.gui.DrawContext ctx, float tickDelta) {
         ThemeModule.sync();
         com.swinganimations.gui.HudLayout.nextFrame();
+        com.swinganimations.gui.NavCard.nextFrame();
         for (Module m : MODULES) {
-            if (!m.isEnabled()) continue;
+            if (!m.isEnabled()) {
+                if (m.keepsRunning()) { // выключен, но метки ещё живут
+                    try {
+                        m.renderHudIdle(ctx, tickDelta);
+                    } catch (Throwable t) {
+                        SwingAnimationsClient.LOGGER.warn("{}: ошибка HUD {}", m.id, t.toString());
+                    }
+                }
+                continue;
+            }
             try {
                 m.renderHud(ctx, tickDelta);
             } catch (Throwable t) {
@@ -193,7 +203,7 @@ public final class ModuleManager {
         boolean anyEnabled = false;
         boolean anyWorld = false;
         for (Module m : MODULES) {
-            if (!m.isEnabled() || "swing".equals(m.id)) continue;
+            if (!(m.isEnabled() || m.keepsRunning()) || "swing".equals(m.id)) continue;
             anyEnabled = true;
             if (m.wantsWorldRender()) {
                 anyWorld = true;
@@ -210,7 +220,7 @@ public final class ModuleManager {
             ms.translate(-camera.getPos().x, -camera.getPos().y, -camera.getPos().z);
             RenderContext ctx = new RenderContext(ms, camera, tickDelta, System.currentTimeMillis(), mc);
             for (Module m : MODULES) {
-                if (!m.isEnabled() || !m.wantsWorldRender()) continue;
+                if (!(m.isEnabled() || m.keepsRunning()) || !m.wantsWorldRender()) continue;
                 if (RENDER_ERRORS.getOrDefault(m.id, 0) >= MAX_RENDER_ERRORS) continue;
                 try {
                     m.render(ctx);
@@ -257,6 +267,14 @@ public final class ModuleManager {
             migrated.values.put("friend_list", legacy.values.get("friend_list"));
             in = new LinkedHashMap<>(in);
             in.put("hitboxes", migrated);
+        }
+        // Миграция: Fullbright раньше был галочкой в CustomWorld, теперь это отдельный модуль
+        Saved cw = in.get("custom_world");
+        if (cw != null && !in.containsKey("fullbright") && cw.values != null && "true".equals(cw.values.get("fullbright"))) {
+            Saved fb = new Saved();
+            fb.enabled = cw.enabled;
+            in = new LinkedHashMap<>(in);
+            in.put("fullbright", fb);
         }
         for (Module m : MODULES) {
             Saved s = in.get(m.id);

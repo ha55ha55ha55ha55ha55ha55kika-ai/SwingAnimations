@@ -21,17 +21,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class LivingEntityMixin {
     @Shadow public boolean handSwinging;
     @Shadow public int handSwingTicks;
-    @Shadow private int jumpingCooldown;
-
-    @Inject(method = "tickMovement()V", at = @At("HEAD"), require = 0)
-    private void swa$noJumpDelay(CallbackInfo ci) {
-        try {
-            com.swinganimations.module.NoJumpDelayModule m = com.swinganimations.module.ModuleManager.noJumpDelay;
-            if (m != null && m.isEnabled() && (Object) this == MinecraftClient.getInstance().player) jumpingCooldown = 0;
-        } catch (Throwable ignored) {
-            // не критично
-        }
-    }
 
     @Inject(method = "swingHand(Lnet/minecraft/util/Hand;Z)V", at = @At("HEAD"), cancellable = true, require = 0)
     private void swa$noRestart(Hand hand, boolean fromServerPlayer, CallbackInfo ci) {

@@ -49,6 +49,8 @@ public final class EventHudModule extends Module implements WaypointSource {
 
     private final Setting.Num server = add(new Setting.Num("server", "Anarchy number (0 = all)", 0f, 0f, (float) HolyWorldApi.MAX_ANARCHY, 1f));
     private final Setting.Num rows = add(new Setting.Num("rows", "Rows", 6f, 3f, 10f, 1f));
+    private final Setting.Bool navCard = add(new Setting.Bool("nav_card", "Navigation card", true));
+    private final Setting.Bool keepMarkers = add(new Setting.Bool("keep_markers", "Keep markers while module is off", true));
     private final Setting.Bool autoMarker = add(new Setting.Bool("auto_marker", "Auto marker from chat", true));
     private final Setting.Num markerTtl = add(new Setting.Num("marker_ttl", "Marker lifetime (min)", 10f, 1f, 60f, 1f));
     private final Setting.Bool autoCommand = add(new Setting.Bool("auto_command", "Auto /event to get coordinates", true));
@@ -111,8 +113,20 @@ public final class EventHudModule extends Module implements WaypointSource {
     @Override
     public void onDisable() {
         HolyWorldApi.stop();
-        markers.clear();
+        if (!keepMarkers.value) markers.clear(); // иначе метки доживают свой срок сами
         asked.clear();
+    }
+
+    /** Модуль выключили, но метки ещё не истекли: продолжаем показывать их (маяк, подписи, карточка, карта). */
+    @Override
+    public boolean keepsRunning() { return keepMarkers.value && !markers.isEmpty(); }
+
+    @Override
+    public void renderHudIdle(DrawContext ctx, float tickDelta) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (navCard.value) com.swinganimations.gui.NavCard.show(ctx, waypoints(), tickDelta);
+        if (mc.options.hudHidden) return;
+        drawMarkerLabels(ctx, ctx.getScaledWindowWidth(), ctx.getScaledWindowHeight());
     }
 
     public void nextPage() {
@@ -458,6 +472,7 @@ public final class EventHudModule extends Module implements WaypointSource {
     @Override
     public void renderHud(DrawContext ctx, float tickDelta) {
         MinecraftClient mc = MinecraftClient.getInstance();
+        if (navCard.value) com.swinganimations.gui.NavCard.show(ctx, waypoints(), tickDelta);
         if (mc.options.hudHidden) return;
         int sw = ctx.getScaledWindowWidth();
         int sh = ctx.getScaledWindowHeight();

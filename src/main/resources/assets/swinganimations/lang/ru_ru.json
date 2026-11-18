@@ -201,7 +201,6 @@
   "swinganimations.setting.particles.only_real": "Только при уроне",
   "swinganimations.setting.custom_world.time": "Время суток",
   "swinganimations.setting.custom_world.hours": "Час (0-24)",
-  "swinganimations.setting.custom_world.fullbright": "Полная яркость",
   "swinganimations.setting.custom_world.clear_weather": "Ясная погода",
   "swinganimations.setting.custom_world.sky": "Оттенок неба",
   "swinganimations.setting.custom_world.hue": "Оттенок",
@@ -553,7 +552,6 @@
   "swinganimations.module.performance": "Performance",
   "swinganimations.module.client_link": "ClientLink",
   "swinganimations.module.item_scroller": "ItemScroller",
-  "swinganimations.module.no_jump_delay": "NoJumpDelay",
   "swinganimations.module.removals": "Removals",
   "swinganimations.module.theme": "Theme",
   "swinganimations.module.auto_sprint": "AutoSprint",
@@ -588,5 +586,13 @@
   "swinganimations.setting.minimap.mob_heads": "Иконки-головы мобов",
   "swinganimations.setting.minimap.mob_icon_size": "Размер иконок мобов",
   "swinganimations.setting.minimap.item_icons": "Предметы на земле значками",
-  "swinganimations.setting.minimap.arrow_size": "Размер моей стрелки"
+  "swinganimations.setting.minimap.arrow_size": "Размер моей стрелки",
+  "swinganimations.setting.event_hud.nav_card": "Навигационная карточка",
+  "swinganimations.setting.death_marker.nav_card": "Навигационная карточка",
+  "swinganimations.nav.dist": "%s м",
+  "swinganimations.nav.above": "выше",
+  "swinganimations.nav.below": "ниже",
+  "swinganimations.nav.target": "Метка",
+  "swinganimations.setting.event_hud.keep_markers": "Держать метки при выключенном модуле",
+  "swinganimations.module.fullbright": "Fullbright"
 }

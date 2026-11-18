@@ -351,7 +351,7 @@ public final class MinimapModule extends Module {
         // метки
         if (waypoints.value) {
             for (Module mod : ModuleManager.MODULES) {
-                if (!(mod instanceof WaypointSource src) || !mod.isEnabled()) continue;
+                if (!(mod instanceof WaypointSource src) || !(mod.isEnabled() || mod.keepsRunning())) continue;
                 for (WaypointSource.Waypoint wp : src.waypoints()) {
                     drawWaypoint(ctx, wp, pp.x, pp.z, cx, cy, r, circle, rot, c, s, scale);
                 }

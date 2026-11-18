@@ -1,6 +1,6 @@
 package com.swinganimations.mixin;
 
-import com.swinganimations.module.CustomWorldModule;
+import com.swinganimations.module.FullbrightModule;
 import com.swinganimations.module.ModuleManager;
 import com.swinganimations.module.RemovalsModule;
 import net.minecraft.client.MinecraftClient;
@@ -11,15 +11,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * CustomWorld: fullbright. Карта освещения читает яркость (gamma) через SimpleOption.getValue,
+ * Fullbright (отдельный модуль). Карта освещения читает яркость (gamma) через SimpleOption.getValue,
  * поэтому пока fullbright включён, для неё возвращается максимум. Сохранённая в настройках яркость не меняется.
  */
 @Mixin(SimpleOption.class)
 public abstract class SimpleOptionMixin {
     @Inject(method = "getValue", at = @At("RETURN"), cancellable = true, require = 0)
     private void swa$fullbright(CallbackInfoReturnable<Object> cir) {
-        CustomWorldModule m = ModuleManager.customWorld;
-        if (m == null || !m.fullbrightOn()) return;
+        FullbrightModule m = ModuleManager.fullbright;
+        if (m == null || !m.isEnabled()) return;
         try {
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc != null && mc.options != null && (Object) this == mc.options.getGamma()) cir.setReturnValue(15.0);

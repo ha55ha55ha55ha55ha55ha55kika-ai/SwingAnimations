@@ -23,6 +23,7 @@ import java.util.List;
 public final class DeathMarkerModule extends Module implements WaypointSource {
     private static final int[] COLORS = {0xFF4040, 0xFF9A1F, 0xFFFFFF, -1};
 
+    private final Setting.Bool navCard = add(new Setting.Bool("nav_card", "Navigation card", true));
     private final Setting.Num lifetime = add(new Setting.Num("lifetime", "Lifetime (min, 0 = until reached)", 10f, 0f, 120f, 1f));
     private final Setting.Num maxMarks = add(new Setting.Num("max_marks", "Keep last N deaths", 3f, 1f, 5f, 1f));
     private final Setting.Bool removeNear = add(new Setting.Bool("remove_near", "Remove when reached", true));
@@ -187,6 +188,7 @@ public final class DeathMarkerModule extends Module implements WaypointSource {
     @Override
     public void renderHud(DrawContext ctx, float tickDelta) {
         MinecraftClient mc = MinecraftClient.getInstance();
+        if (navCard.value) com.swinganimations.gui.NavCard.show(ctx, waypoints(), tickDelta);
         if (marks.isEmpty() || mc.options.hudHidden || !label.value || !Projection.valid()) return;
         int sw = ctx.getScaledWindowWidth();
         int sh = ctx.getScaledWindowHeight();
