@@ -584,5 +584,9 @@
   "swinganimations.setting.spawner_search.search": "Подсвечивать подходящие",
   "swinganimations.setting.spawner_search.dim": "Затемнять неподходящие спавнеры",
   "swinganimations.setting.spawner_search.match": "Зачарования: все / любое",
-  "swinganimations.setting.spawner_search.min_level": "Мин. уровень зачарования"
+  "swinganimations.setting.spawner_search.min_level": "Мин. уровень зачарования",
+  "swinganimations.setting.minimap.mob_heads": "Иконки-головы мобов",
+  "swinganimations.setting.minimap.mob_icon_size": "Размер иконок мобов",
+  "swinganimations.setting.minimap.item_icons": "Предметы на земле значками",
+  "swinganimations.setting.minimap.arrow_size": "Размер моей стрелки"
 }

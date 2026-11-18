@@ -36,6 +36,10 @@ import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.vehicle.AbstractMinecartEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.item.SpawnEggItem;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.vehicle.ChestBoatEntity;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.text.Text;
@@ -48,7 +52,9 @@ import net.minecraft.world.chunk.ChunkStatus;
 import org.joml.Matrix4f;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Minimap: собственная мини-карта (код Xaero's Minimap, VoxelMap и JourneyMap закрыт, встроить его нельзя).
@@ -92,7 +98,11 @@ public final class MinimapModule extends Module {
     private final Setting.Num iconScale = add(new Setting.Num("icon_scale", "Icon scale", 1.25f, 1f, 2f, 0.25f));
     private final Setting.Num dotSize = add(new Setting.Num("dot_size", "Entity dot size", 2f, 1f, 5f, 1f));
     private final Setting.Mode dotStyle = add(new Setting.Mode("dot_style", "Dot style", "Square", "Round", "Arrow"));
-    private final Setting.Bool playerHeads = add(new Setting.Bool("player_heads", "Player heads", false));
+    private final Setting.Bool playerHeads = add(new Setting.Bool("player_heads", "Player heads", true));
+    private final Setting.Bool mobHeads = add(new Setting.Bool("mob_heads", "Mob head icons", true));
+    private final Setting.Num mobIconSize = add(new Setting.Num("mob_icon_size", "Mob icon size", 9f, 6f, 16f, 1f).<Setting.Num>visibleWhen(() -> mobHeads.value));
+    private final Setting.Bool itemIcons = add(new Setting.Bool("item_icons", "Dropped items as icons", true));
+    private final Setting.Num arrowSize = add(new Setting.Num("arrow_size", "My arrow size", 1f, 0.5f, 3f, 0.25f));
     private final Setting.Num headSize = add(new Setting.Num("head_size", "Head size", 8f, 6f, 14f, 1f).<Setting.Num>visibleWhen(() -> playerHeads.value));
     private final Setting.Mode names = add(new Setting.Mode("names", "Names", "Off", "Players", "All"));
     private final Setting.Num heightFilter = add(new Setting.Num("height_filter", "Height filter (0 = off)", 0f, 0f, 128f, 4f));
@@ -454,7 +464,8 @@ public final class MinimapModule extends Module {
         Batch b = Batch.triangles();
         int col = 0xFFFFFFFF;
         int dark = 0xAA000000;
-        float tip = 6.5f, back = 4f, wing = 4f;
+        float k = arrowSize.value;
+        float tip = 6.5f * k, back = 4f * k, wing = 4f * k;
         b.v(m, cx + fx * (tip + 1.5f), cy + fy * (tip + 1.5f), 0, dark);
         b.v(m, cx - fx * (back + 1.5f) + px * (wing + 1.5f), cy - fy * (back + 1.5f) + py * (wing + 1.5f), 0, dark);
         b.v(m, cx - fx * (back + 1.5f) - px * (wing + 1.5f), cy - fy * (back + 1.5f) - py * (wing + 1.5f), 0, dark);
@@ -630,6 +641,17 @@ public final class MinimapModule extends Module {
 
     private void drawDot(DrawContext ctx, Entity e, int px, int py, int ds, int col, boolean item,
                          float td, boolean rot, float c, float s) {
+        if (item && itemIcons.value && e instanceof ItemEntity ie && !ie.getStack().isEmpty()) {
+            drawItemIcon(ctx, ie.getStack(), px, py, Math.max(6, (int) mobIconSize.value - 1), col);
+            return;
+        }
+        if (!item && mobHeads.value && e instanceof LivingEntity && !(e instanceof PlayerEntity)) {
+            ItemStack icon = mobIcon(e.getType());
+            if (!icon.isEmpty()) {
+                drawItemIcon(ctx, icon, px, py, (int) mobIconSize.value, col);
+                return;
+            }
+        }
         if (!item && playerHeads.value && e instanceof AbstractClientPlayerEntity acp) {
             int hs = (int) headSize.value;
             int x0 = px - hs / 2, y0 = py - hs / 2;
@@ -680,6 +702,52 @@ public final class MinimapModule extends Module {
             int w = (y + L - 1) / 2;
             ctx.fill(-w, y, w + 1, y + 1, 0xFF000000 | col);
         }
+        m.pop();
+    }
+
+    // ---------------- иконки мобов и предметов ----------------
+
+    private static final Map<EntityType<?>, ItemStack> MOB_ICONS = new IdentityHashMap<>();
+
+    /**
+     * «Голова» моба: настоящая голова там, где она есть в игре (зомби, скелет, крипер, пиглин, дракон),
+     * у голема, снежного голема и Визера предмет, который их символизирует, у остальных яйцо призыва этого моба (цвета как в игре),
+     * у мобов без яйца (в том числе из модов) бирка. Значок есть у каждого моба.
+     */
+    private static ItemStack mobIcon(EntityType<?> t) {
+        ItemStack st = MOB_ICONS.get(t);
+        if (st != null) return st;
+        if (t == EntityType.ZOMBIE || t == EntityType.HUSK || t == EntityType.DROWNED || t == EntityType.ZOMBIE_VILLAGER) st = new ItemStack(Items.ZOMBIE_HEAD);
+        else if (t == EntityType.SKELETON || t == EntityType.STRAY || t == EntityType.BOGGED) st = new ItemStack(Items.SKELETON_SKULL);
+        else if (t == EntityType.WITHER_SKELETON) st = new ItemStack(Items.WITHER_SKELETON_SKULL);
+        else if (t == EntityType.CREEPER) st = new ItemStack(Items.CREEPER_HEAD);
+        else if (t == EntityType.PIGLIN || t == EntityType.PIGLIN_BRUTE || t == EntityType.ZOMBIFIED_PIGLIN) st = new ItemStack(Items.PIGLIN_HEAD);
+        else if (t == EntityType.ENDER_DRAGON) st = new ItemStack(Items.DRAGON_HEAD);
+        else if (t == EntityType.IRON_GOLEM) st = new ItemStack(Items.IRON_BLOCK);
+        else if (t == EntityType.SNOW_GOLEM) st = new ItemStack(Items.CARVED_PUMPKIN);
+        else if (t == EntityType.WITHER) st = new ItemStack(Items.NETHER_STAR);
+        else if (t == EntityType.GIANT) st = new ItemStack(Items.ZOMBIE_HEAD);
+        else if (t == EntityType.ILLUSIONER) st = new ItemStack(Items.ENDER_EYE);
+        else {
+            SpawnEggItem egg = SpawnEggItem.forEntity(t);
+            // у мобов без яйца (в том числе из других модов) значок «бирка», чтобы ни один моб не остался просто точкой
+            st = new ItemStack(egg != null ? egg : Items.NAME_TAG);
+        }
+        MOB_ICONS.put(t, st);
+        return st;
+    }
+
+    /** Предмет как значок на карте: в рамке цвета категории (враг, моб, предмет) на тёмной подложке. */
+    private void drawItemIcon(DrawContext ctx, ItemStack st, int px, int py, int size, int col) {
+        int x0 = px - size / 2, y0 = py - size / 2;
+        ctx.fill(x0 - 1, y0 - 1, x0 + size + 1, y0 + size + 1, 0xFF000000 | col);
+        ctx.fill(x0, y0, x0 + size, y0 + size, 0xFF16181F);
+        MatrixStack m = ctx.getMatrices();
+        m.push();
+        m.translate(x0, y0, 0f);
+        float sc = size / 16f;
+        m.scale(sc, sc, 1f);
+        ctx.drawItem(st, 0, 0);
         m.pop();
     }
 

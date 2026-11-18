@@ -395,5 +395,9 @@
   "swinganimations.setting.spawner_search.search": "Highlight matches",
   "swinganimations.setting.spawner_search.dim": "Dim non-matching spawners",
   "swinganimations.setting.spawner_search.match": "Enchant match (All / Any)",
-  "swinganimations.setting.spawner_search.min_level": "Min. enchant level"
+  "swinganimations.setting.spawner_search.min_level": "Min. enchant level",
+  "swinganimations.setting.minimap.mob_heads": "Mob head icons",
+  "swinganimations.setting.minimap.mob_icon_size": "Mob icon size",
+  "swinganimations.setting.minimap.item_icons": "Dropped items as icons",
+  "swinganimations.setting.minimap.arrow_size": "My arrow size"
 }
