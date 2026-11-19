@@ -20,7 +20,7 @@ public final class EventSearchScreen extends Screen {
     private static final int MAX = HolyWorldApi.MAX_ANARCHY;
 
     private final Screen parent;
-    private final EventHudModule module;
+    private final AnarchyPicker module;
     private TextFieldWidget field;
     private final Spring[] hover = new Spring[MAX + 1];
     private final Spring appear = new Spring(0f, 170f, 20f);
@@ -31,7 +31,7 @@ public final class EventSearchScreen extends Screen {
     private static final int GAP = 4;
     private static final int BTN_H = 18;
 
-    public EventSearchScreen(Screen parent, EventHudModule module) {
+    public EventSearchScreen(Screen parent, AnarchyPicker module) {
         super(Text.literal("Anarchy search"));
         this.parent = parent;
         this.module = module;
@@ -111,7 +111,7 @@ public final class EventSearchScreen extends Screen {
 
         Ui.rect(ctx, px, py, pw, ph, 8, Ui.BG);
         Ui.outline(ctx, px, py, pw, ph, 8, Ui.OUTLINE);
-        Hud.text(ctx, "Поиск анархии", px + 12, py + 8, Ui.TEXT);
+        Hud.text(ctx, module.searchTitle(), px + 12, py + 8, Ui.TEXT);
         int sel = module.selected();
         Hud.textRight(ctx, sel > 0 ? "Сейчас: A" + sel : "Сейчас: все", px + pw - 12, py + 8, Ui.ACCENT);
 
@@ -158,12 +158,12 @@ public final class EventSearchScreen extends Screen {
         // легенда
         int ly = gy + 6 * ch + 5 * GAP + 6;
         ctx.fill(gx, ly + 2, gx + 3, ly + 5, Ui.ACCENT);
-        Hud.text(ctx, "есть ивент", gx + 7, ly, Ui.TEXT_DIM);
+        Hud.text(ctx, module.legend(), gx + 7, ly, Ui.TEXT_DIM);
 
         // кнопки
         button(ctx, mx, my, px + 12, btnY, btnW, "Все анархии", sel == 0);
         button(ctx, mx, my, px + 12 + btnW + GAP, btnY, btnW, "Закрыть", false);
-        button(ctx, mx, my, px + 12, btnY + BTN_H + GAP, pw - 24, "Фильтр ивентов", false);
+        button(ctx, mx, my, px + 12, btnY + BTN_H + GAP, pw - 24, module.filterLabel(), false);
         m.pop();
     }
 
@@ -194,7 +194,7 @@ public final class EventSearchScreen extends Screen {
             }
         }
         if (my >= btnY + BTN_H + GAP && my < btnY + 2 * BTN_H + GAP && mx >= px + 12 && mx < px + pw - 12) {
-            module.openFilter();
+            module.filterAction();
             return true;
         }
         if (my >= btnY && my < btnY + BTN_H) {

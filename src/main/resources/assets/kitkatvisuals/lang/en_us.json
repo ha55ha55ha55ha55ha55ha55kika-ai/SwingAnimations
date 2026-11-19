@@ -444,5 +444,11 @@
   "kitkatvisuals.setting.anarchy_finder.badge": "Show online on slots",
   "kitkatvisuals.setting.anarchy_finder.find": "Find least busy anarchy now",
   "key.kitkatvisuals.anarchy_find": "Find least busy anarchy",
-  "kitkatvisuals.setting.event_hud.filter": "Event filter (choose which to show)"
+  "kitkatvisuals.setting.event_hud.filter": "Event filter (choose which to show)",
+  "kitkatvisuals.value.any rarity": "Any",
+  "kitkatvisuals.value.rare+": "Rare and above",
+  "kitkatvisuals.value.epic+": "Epic and above",
+  "kitkatvisuals.value.legendary": "Legendary only",
+  "kitkatvisuals.value.by anarchy": "By anarchy",
+  "kitkatvisuals.value.newest first": "Newest first"
 }

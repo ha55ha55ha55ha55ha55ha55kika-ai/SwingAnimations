@@ -633,5 +633,11 @@
   "kitkatvisuals.setting.anarchy_finder.badge": "Онлайн на слотах",
   "kitkatvisuals.setting.anarchy_finder.find": "Найти анархию с мин. онлайном",
   "key.kitkatvisuals.anarchy_find": "Найти анархию с мин. онлайном",
-  "kitkatvisuals.setting.event_hud.filter": "Фильтр ивентов (какие показывать)"
+  "kitkatvisuals.setting.event_hud.filter": "Фильтр ивентов (какие показывать)",
+  "kitkatvisuals.value.any rarity": "Любая",
+  "kitkatvisuals.value.rare+": "Редкая и выше",
+  "kitkatvisuals.value.epic+": "Эпическая и выше",
+  "kitkatvisuals.value.legendary": "Только легендарная",
+  "kitkatvisuals.value.by anarchy": "По анархии",
+  "kitkatvisuals.value.newest first": "Сначала новые"
 }

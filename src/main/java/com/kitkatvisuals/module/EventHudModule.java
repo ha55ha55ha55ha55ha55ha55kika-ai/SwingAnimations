@@ -7,6 +7,7 @@ import com.kitkatvisuals.gui.HudLayout;
 import com.kitkatvisuals.gui.Ui;
 import com.kitkatvisuals.render.Batch;
 import com.kitkatvisuals.render.Projection;
+import com.kitkatvisuals.util.Rarity;
 import com.kitkatvisuals.util.Spring;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.MinecraftClient;
@@ -34,7 +35,7 @@ import java.util.regex.Pattern;
  * (маяк в мире и подпись с расстоянием). Формат строки с координатами заранее неизвестен, поэтому парсер терпимый
  * и пишет подходящие строки в лог с префиксом «EventHud chat:», чтобы их можно было прислать и уточнить.
  */
-public final class EventHudModule extends Module implements WaypointSource {
+public final class EventHudModule extends Module implements WaypointSource, com.kitkatvisuals.gui.AnarchyPicker {
     private static final int ROWS = 6;
     private static final Pattern XYZ = Pattern.compile("(?i)x\\s*[:=]?\\s*(-?\\d+)\\D{0,8}?y\\s*[:=]?\\s*(-?\\d+)\\D{0,8}?z\\s*[:=]?\\s*(-?\\d+)");
     private static final Pattern XZ = Pattern.compile("(?i)x\\s*[:=]?\\s*(-?\\d+)\\D{0,12}?z\\s*[:=]?\\s*(-?\\d+)");
@@ -62,6 +63,9 @@ public final class EventHudModule extends Module implements WaypointSource {
     // Скрытые и когда-либо виденные названия ивентов («имя|имя»): правятся в окне фильтра, в ClickGUI не показываются.
     private final Setting.Str hiddenEvents = add(new Setting.Str("hidden_events", "Hidden events", ""));
     private final Setting.Str knownEvents = add(new Setting.Str("known_events", "Known events", ""));
+    // Редкости: скрытые и виденные пары «ивент#редкость» (правятся в окне фильтра, в ClickGUI не показываются).
+    private final Setting.Str hiddenRares = add(new Setting.Str("hidden_rares", "Hidden rarities", ""));
+    private final Setting.Str knownRares = add(new Setting.Str("known_rares", "Known rarities", ""));
     private final Setting.Bool testMarker = add(new Setting.Bool("test_marker", "Test marker (8 blocks ahead)", false));
     private final Setting.Num interval = add(new Setting.Num("interval", "Update interval (s)", 15f, 10f, 60f, 1f));
 
@@ -140,7 +144,9 @@ public final class EventHudModule extends Module implements WaypointSource {
     private Set<String> hiddenSet = new HashSet<>();
     private long nextLearn;
 
-    private static String enc(String name) { return name == null ? "" : name.replace('|', '/').trim(); }
+    private static String enc(String name) { return name == null ? "" : name.replace('|', '/').replace('#', '/').trim(); }
+
+    private static String pair(String name, String rare) { return enc(name) + "#" + (rare == null ? "default" : rare.replace('|', '/').replace('#', '/')); }
 
     private static Set<String> parseNames(String csv) {
         Set<String> out = new java.util.TreeSet<>();
@@ -173,8 +179,74 @@ public final class EventHudModule extends Module implements WaypointSource {
 
     public void showAllEvents() {
         hiddenEvents.value = "";
+        hiddenRares.value = "";
         page = 0;
         ModuleManager.save();
+    }
+
+    // ---------------- фильтр редкости (для каждого ивента свой) ----------------
+
+    private String hiddenRaresCsv = "";
+    private Set<String> hiddenRaresSet = new HashSet<>();
+
+    private Set<String> hiddenRareSet() {
+        String v = hiddenRares.value == null ? "" : hiddenRares.value;
+        if (!v.equals(hiddenRaresCsv)) {
+            hiddenRaresCsv = v;
+            hiddenRaresSet = parseNames(v);
+        }
+        return hiddenRaresSet;
+    }
+
+    /** true: этот ивент именно с такой редкостью скрыт фильтром. */
+    public boolean isRareHidden(String name, String rare) {
+        Set<String> h = hiddenRareSet();
+        return !h.isEmpty() && h.contains(pair(name, rare));
+    }
+
+    public void toggleRare(String name, String rare) {
+        Set<String> h = new java.util.TreeSet<>(hiddenRareSet());
+        String k = pair(name, rare);
+        if (!h.remove(k)) h.add(k);
+        hiddenRares.value = String.join("|", h);
+        page = 0;
+        ModuleManager.save();
+    }
+
+    /** Сколько редкостей этого ивента скрыто. */
+    public int hiddenRareCount(String name) {
+        String prefix = enc(name) + "#";
+        int c = 0;
+        for (String k : hiddenRareSet()) if (k.startsWith(prefix)) c++;
+        return c;
+    }
+
+    /** Редкости ивента: когда-либо виденные (сохраняются) плюс идущие сейчас и участвующие в голосованиях; от низшей к высшей. */
+    public List<String> knownRaresOf(String name) {
+        String prefix = enc(name) + "#";
+        Set<String> out = new java.util.TreeSet<>();
+        for (String k : parseNames(knownRares.value)) if (k.startsWith(prefix)) out.add(k.substring(prefix.length()));
+        for (String k : hiddenRareSet()) if (k.startsWith(prefix)) out.add(k.substring(prefix.length()));
+        for (HolyWorldApi.Event e : HolyWorldApi.latest()) if (enc(e.name()).equals(enc(name))) out.add(e.rare());
+        for (HolyWorldApi.Voting v : HolyWorldApi.votings()) {
+            for (HolyWorldApi.Candidate c : v.candidates()) if (enc(c.name()).equals(enc(name))) out.add(c.rare());
+        }
+        List<String> list = new ArrayList<>(out);
+        list.sort((a, b) -> {
+            int d = Integer.compare(Rarity.rank(a), Rarity.rank(b));
+            return d != 0 ? d : a.compareTo(b);
+        });
+        return list;
+    }
+
+    /** Сколько ивентов с этим названием и редкостью идёт сейчас (по всем анархиям, без учёта фильтра). */
+    public int activeCount(String name, String rare) {
+        String n = enc(name);
+        int c = 0;
+        for (HolyWorldApi.Event e : HolyWorldApi.latest()) {
+            if (enc(e.name()).equals(n) && (e.rare() == null ? "default" : e.rare()).equals(rare)) c++;
+        }
+        return c;
     }
 
     public void hideAllEvents() {
@@ -188,6 +260,9 @@ public final class EventHudModule extends Module implements WaypointSource {
         Set<String> out = parseNames(knownEvents.value);
         out.addAll(hidden());
         for (HolyWorldApi.Event e : HolyWorldApi.latest()) out.add(enc(e.name()));
+        for (HolyWorldApi.Voting v : HolyWorldApi.votings()) {
+            for (HolyWorldApi.Candidate c : v.candidates()) out.add(enc(c.name()));
+        }
         return new ArrayList<>(out);
     }
 
@@ -211,16 +286,28 @@ public final class EventHudModule extends Module implements WaypointSource {
         if (now < nextLearn) return;
         nextLearn = now + 2000L;
         Set<String> known = parseNames(knownEvents.value);
+        Set<String> rares = parseNames(knownRares.value);
         boolean changed = false;
         for (HolyWorldApi.Event e : HolyWorldApi.latest()) {
-            String n = enc(e.name());
-            if (n.isEmpty() || known.size() >= MAX_KNOWN) continue;
-            if (known.add(n)) changed = true;
+            changed |= learnOne(known, rares, e.name(), e.rare());
+        }
+        for (HolyWorldApi.Voting v : HolyWorldApi.votings()) {
+            for (HolyWorldApi.Candidate c : v.candidates()) changed |= learnOne(known, rares, c.name(), c.rare());
         }
         if (changed) {
             knownEvents.value = String.join("|", known);
+            knownRares.value = String.join("|", rares);
             ModuleManager.save();
         }
+    }
+
+    private static boolean learnOne(Set<String> known, Set<String> rares, String name, String rare) {
+        String n = enc(name);
+        if (n.isEmpty()) return false;
+        boolean changed = false;
+        if (known.size() < MAX_KNOWN && known.add(n)) changed = true;
+        if (known.contains(n) && rares.size() < MAX_KNOWN * 4 && rares.add(pair(name, rare))) changed = true;
+        return changed;
     }
 
     /** Окно фильтра: включает модуль, если он выключен. Возврат по Esc ведёт на экран, с которого его открыли. */
@@ -234,9 +321,9 @@ public final class EventHudModule extends Module implements WaypointSource {
     /** Список ивентов API без скрытых фильтром. */
     private List<HolyWorldApi.Event> events() {
         List<HolyWorldApi.Event> all = HolyWorldApi.latest();
-        if (hidden().isEmpty()) return all;
+        if (hidden().isEmpty() && hiddenRareSet().isEmpty()) return all;
         List<HolyWorldApi.Event> out = new ArrayList<>(all.size());
-        for (HolyWorldApi.Event e : all) if (!isHidden(e.name())) out.add(e);
+        for (HolyWorldApi.Event e : all) if (!isHidden(e.name()) && !isRareHidden(e.name(), e.rare())) out.add(e);
         return out;
     }
 
@@ -245,8 +332,22 @@ public final class EventHudModule extends Module implements WaypointSource {
     }
 
     /** Выбранная анархия (0 = все). */
+    @Override
     public int selected() { return (int) server.value; }
 
+    @Override
+    public String searchTitle() { return "Поиск анархии"; }
+
+    @Override
+    public String legend() { return "есть ивент"; }
+
+    @Override
+    public String filterLabel() { return "Фильтр ивентов"; }
+
+    @Override
+    public void filterAction() { openFilter(); }
+
+    @Override
     public void select(int n) {
         server.set(Math.max(0, Math.min(HolyWorldApi.MAX_ANARCHY, n)));
         page = 0;
@@ -355,6 +456,7 @@ public final class EventHudModule extends Module implements WaypointSource {
     }
 
     /** Число ивентов по анархиям 1..36; best[n] = лучший ранг редкости (0 нет, 1 обычный ... 4 легендарный). */
+    @Override
     public int[] anarchyCounts(int[] best) {
         int[] counts = new int[HolyWorldApi.MAX_ANARCHY + 1];
         for (HolyWorldApi.Event e : events()) {
@@ -366,24 +468,9 @@ public final class EventHudModule extends Module implements WaypointSource {
         return counts;
     }
 
-    public static int rarityRank(String rare) {
-        if (rare == null) return 1;
-        return switch (rare.toUpperCase(Locale.ROOT)) {
-            case "LEGENDARY" -> 4;
-            case "EPIC" -> 3;
-            case "RARE" -> 2;
-            default -> 1;
-        };
-    }
+    public static int rarityRank(String rare) { return Rarity.rank(rare); }
 
-    public static int rankColor(int rank) {
-        return switch (rank) {
-            case 4 -> 0xFFFFC93C;
-            case 3 -> 0xFFB65CFF;
-            case 2 -> 0xFF5CB8FF;
-            default -> 0xFFE8EAF0;
-        };
-    }
+    public static int rankColor(int rank) { return Rarity.color(rank); }
 
     // ---------------- чат -> метка ----------------
 
@@ -461,10 +548,28 @@ public final class EventHudModule extends Module implements WaypointSource {
     }
 
     private void addMarker(double x, double y, double z, String name, boolean tall) {
-        if (isHidden(name)) return; // ивент скрыт фильтром: метку не ставим
+        if (isHidden(name) || rareFilteredOut(name)) return; // ивент скрыт фильтром: метку не ставим
         markers.removeIf(k -> k.name.equals(name));
         markers.add(new Marker(x, y, z, name, System.currentTimeMillis(), tall));
         while (markers.size() > 5) markers.remove(0);
+    }
+
+    /**
+     * true: на вашей анархии (или, если она неизвестна, на любой) такой ивент сейчас идёт, но все его экземпляры
+     * имеют скрытую фильтром редкость. Из чата редкость не узнать, поэтому смотрим список API.
+     */
+    private boolean rareFilteredOut(String name) {
+        if (hiddenRareSet().isEmpty()) return false;
+        int a = effectiveAnarchy(MinecraftClient.getInstance());
+        String n = enc(name);
+        int total = 0, shown = 0;
+        for (HolyWorldApi.Event e : HolyWorldApi.latest()) {
+            if (!enc(e.name()).equals(n)) continue;
+            if (a > 0 && !HolyWorldApi.onAnarchy(e.server(), a)) continue;
+            total++;
+            if (!isRareHidden(e.name(), e.rare())) shown++;
+        }
+        return total > 0 && shown == 0;
     }
 
     /** Название берём из текущего списка API: если в строке упомянут ивент, то его, иначе «Ивент». */
@@ -527,8 +632,10 @@ public final class EventHudModule extends Module implements WaypointSource {
     private ItemStack stack(Item item) { return stacks.computeIfAbsent(item, ItemStack::new); }
 
     /** Иконка по смыслу названия ивента; иначе по редкости. */
-    private ItemStack iconFor(HolyWorldApi.Event e) {
-        String n = e.name().toLowerCase(Locale.ROOT);
+    private ItemStack iconFor(HolyWorldApi.Event e) { return iconFor(e.name(), e.rare()); }
+
+    private ItemStack iconFor(String eventName, String rare) {
+        String n = eventName.toLowerCase(Locale.ROOT);
         Item it;
         if (n.contains("посыл") || n.contains("груз") || n.contains("ящик") || n.contains("сундук") || n.contains("drop")) it = Items.CHEST;
         else if (n.contains("корабл") || n.contains("пират") || n.contains("ship")) it = Items.OAK_BOAT;
@@ -544,7 +651,7 @@ public final class EventHudModule extends Module implements WaypointSource {
         else if (n.contains("ферм") || n.contains("урож")) it = Items.WHEAT;
         else if (n.contains("рыб") || n.contains("fish")) it = Items.FISHING_ROD;
         else {
-            it = switch (rarityRank(e.rare())) {
+            it = switch (rarityRank(rare)) {
                 case 4 -> Items.NETHER_STAR;
                 case 3 -> Items.AMETHYST_SHARD;
                 case 2 -> Items.HEART_OF_THE_SEA;
@@ -598,9 +705,13 @@ public final class EventHudModule extends Module implements WaypointSource {
         drawMarkerLabels(ctx, sw, sh);
 
         List<HolyWorldApi.Event> all = filtered();
+        // Нет ивентов: вместо пустой надписи показываем идущие голосования за следующий ивент (из /v1/votings).
+        List<VRow> votes = all.isEmpty() ? votingRows() : List.of();
+        boolean voteMode = !votes.isEmpty();
         boolean edit = HudLayout.editing();
         int perPage = Math.max(3, (int) rows.value);
-        int pages = Math.max(1, (all.size() + perPage - 1) / perPage);
+        int count = voteMode ? votes.size() : all.size();
+        int pages = Math.max(1, (count + perPage - 1) / perPage);
         if (page >= pages) page = 0;
 
         int rowH = 18;
@@ -617,16 +728,16 @@ public final class EventHudModule extends Module implements WaypointSource {
         m.push();
         m.translate(x + 7, y + 5 + bob, 0f);
         m.scale(0.75f, 0.75f, 1f);
-        ctx.drawItem(stack(Items.NETHER_STAR), 0, 0);
+        ctx.drawItem(stack(voteMode ? Items.BOOK : Items.NETHER_STAR), 0, 0);
         m.pop();
-        Hud.text(ctx, "Ивенты", x + 23, y + 7, Ui.TEXT);
+        Hud.text(ctx, voteMode ? "Голосование" : "Ивенты", x + 23, y + 7, Ui.TEXT);
         int rx = x + w - 8;
-        rx = pill(ctx, rx, y + 5, String.valueOf(all.size()), 0xAA000000 | (Ui.ACCENT & 0xFFFFFF), 0xFF101010);
-        int sel = (int) server.value;
+        rx = pill(ctx, rx, y + 5, String.valueOf(count), 0xAA000000 | (Ui.ACCENT & 0xFFFFFF), 0xFF101010);
+        int sel = voteMode ? voteAnarchyShown(votes) : (int) server.value;
         rx = pill(ctx, rx, y + 5, sel > 0 ? "A" + sel : "Все", 0x66FFFFFF, Ui.TEXT);
 
         int ry = y + 24;
-        if (all.isEmpty()) {
+        if (count == 0) {
             String msg = edit ? "Пример: Золотая лихорадка" : "Сейчас ивентов нет";
             Hud.text(ctx, msg, x + w / 2 - Hud.w(msg) / 2, ry + 12, Ui.TEXT_DIM);
             if (!edit) {
@@ -637,6 +748,11 @@ public final class EventHudModule extends Module implements WaypointSource {
                     Hud.text(ctx, "z", zx, zy, ((int) ((1f - t) * 200f) << 24) | 0xB4BECD);
                 }
             }
+        } else if (voteMode) {
+            ctx.enableScissor(x, y + 22, x + w, y + h - 18);
+            int from = page * perPage;
+            drawVotes(ctx, votes, from, Math.min(votes.size(), from + perPage), x + 6, ry, w - 12, rowH, now);
+            ctx.disableScissor();
         } else {
             ctx.enableScissor(x, y + 22, x + w, y + h - 18);
             int from = page * perPage;
@@ -709,6 +825,110 @@ public final class EventHudModule extends Module implements WaypointSource {
         String st = upd == 0L ? "Загрузка" + ".".repeat((int) ((now / 400) % 4)) : "обновлено " + Math.max(0, (now - upd) / 1000L) + " с";
         Hud.textRight(ctx, st, x + w - 8, fy, upd == 0L ? Ui.TEXT_DIM : 0x889AA3B2);
         HudLayout.pop(ctx, win, x, y, w, h);
+    }
+
+    // ---------------- голосования ----------------
+
+    /** Голосования старше этого возраста не показываем: данные устарели (опрос мог встать). */
+    private static final long VOTE_STALE_MS = 120_000L;
+
+    /** Строка голосования: вариант, его голоса и общее число голосов на сервере. */
+    private record VRow(String tag, String name, String rare, int votes, int total, boolean leader, boolean filtered) { }
+
+    private static String tag(String server) { return server.replace("LITE_NEW_ANARCHY_", "N").replace("LITE_ANARCHY_", "A"); }
+
+    /** Анархия для голосований: выбранная вручную, иначе та, на которой вы играете (0 = неизвестно). */
+    private int voteAnarchy() {
+        int sel = (int) server.value;
+        return sel > 0 ? sel : com.kitkatvisuals.util.AnarchyDetector.detect(MinecraftClient.getInstance());
+    }
+
+    /** Что писать в «таблетке» анархии, когда показаны голосования: если строки одной анархии, её номер, иначе «Все». */
+    private static int voteAnarchyShown(List<VRow> rows) {
+        String t = rows.get(0).tag();
+        for (VRow r : rows) if (!r.tag().equals(t)) return 0;
+        return t.length() > 1 ? numberOf(t) : 0;
+    }
+
+    private static int numberOf(String tag) {
+        try {
+            return Integer.parseInt(tag.substring(1));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Строки для HUD. Если на вашей анархии идёт голосование, все его варианты по убыванию голосов. Иначе, когда анархия
+     * не выбрана вручную, по строке на каждое идущее голосование (лидер и его голоса). Скрытые фильтром варианты
+     * не пропадают (голосование показывается целиком), а притушены.
+     */
+    private List<VRow> votingRows() {
+        List<VRow> out = new ArrayList<>();
+        if (!HolyWorldApi.votingsFresh(VOTE_STALE_MS)) return out;
+        int a = voteAnarchy();
+        List<HolyWorldApi.Voting> mine = new ArrayList<>();
+        List<HolyWorldApi.Voting> every = new ArrayList<>();
+        for (HolyWorldApi.Voting v : HolyWorldApi.votings()) {
+            if (HolyWorldApi.number(v.server()) > HolyWorldApi.MAX_ANARCHY) continue;
+            every.add(v);
+            if (a > 0 && HolyWorldApi.onAnarchy(v.server(), a)) mine.add(v);
+        }
+        if (!mine.isEmpty()) {
+            for (HolyWorldApi.Voting v : mine) {
+                int total = v.total();
+                boolean first = true;
+                for (HolyWorldApi.Candidate c : v.candidates()) {
+                    out.add(new VRow(tag(v.server()), c.name(), c.rare(), c.votes(), total, first && c.votes() > 0, voteHidden(c)));
+                    first = false;
+                }
+            }
+            return out;
+        }
+        if ((int) server.value > 0) return out; // выбрана конкретная анархия, а у неё голосования нет
+        for (HolyWorldApi.Voting v : every) {
+            HolyWorldApi.Candidate c = v.leader();
+            if (c != null) out.add(new VRow(tag(v.server()), c.name(), c.rare(), c.votes(), v.total(), true, voteHidden(c)));
+        }
+        return out;
+    }
+
+    private boolean voteHidden(HolyWorldApi.Candidate c) {
+        return isHidden(c.name()) || isRareHidden(c.name(), c.rare());
+    }
+
+    private void drawVotes(DrawContext ctx, List<VRow> rows, int from, int to, int cx, int ry, int chipW, int rowH, long now) {
+        MatrixStack m = ctx.getMatrices();
+        boolean sameTag = true;
+        for (VRow r : rows) if (!r.tag().equals(rows.get(0).tag())) sameTag = false;
+        for (int i = from; i < to; i++) {
+            VRow r = rows.get(i);
+            int rank = rarityRank(r.rare());
+            int rc = rankColor(rank);
+            int rgb = rc & 0xFFFFFF;
+            Ui.rect(ctx, cx, ry, chipW, rowH, 6, 0x90171A2A);
+            Ui.rect(ctx, cx, ry, chipW, rowH, 6, (rank >= 3 ? 0x30 : 0x16) << 24 | rgb);
+            Ui.outline(ctx, cx, ry, chipW, rowH, 6, (r.leader() ? 0x77 : 0x30) << 24 | rgb);
+            ctx.fill(cx + 1, ry + 4, cx + 3, ry + rowH - 4, 0xFF000000 | rgb);
+            // полоса доли голосов вдоль нижнего края плашки
+            float share = r.total() > 0 ? r.votes() / (float) r.total() : 0f;
+            int bw = Math.round((chipW - 12) * share);
+            if (bw > 0) ctx.fill(cx + 6, ry + rowH - 3, cx + 6 + bw, ry + rowH - 1, (r.leader() ? 0xFF : 0x88) << 24 | rgb);
+
+            m.push();
+            m.translate(cx + 8, ry + 3, 0f);
+            m.scale(0.75f, 0.75f, 1f);
+            ctx.drawItem(iconFor(r.name(), r.rare()), 0, 0);
+            m.pop();
+
+            int left = cx + chipW - 6;
+            left = pill(ctx, left, ry + 3, String.valueOf(r.votes()),
+                    r.leader() ? (0xAA000000 | (Ui.ACCENT & 0xFFFFFF)) : 0x66FFFFFF, r.leader() ? 0xFF101010 : Ui.TEXT);
+            if (!sameTag) left = pill(ctx, left, ry + 3, r.tag(), 0x66FFFFFF, Ui.TEXT);
+            int tc = rank >= 2 ? rc : Ui.TEXT;
+            Hud.text(ctx, fit(r.name(), left - (cx + 24) - 2), cx + 24, ry + 5, r.filtered() ? Ui.fade(tc, 0.4f) : tc);
+            ry += rowH + 3;
+        }
     }
 
     /** Небольшой мостик к KeyBinds (чтобы модуль не зависел от порядка инициализации). */
