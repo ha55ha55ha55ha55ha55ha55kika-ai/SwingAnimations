@@ -16,6 +16,8 @@ import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import com.kitkatvisuals.render.HitOverlay;
 
 /**
  * SeeInvisibles: невидимый игрок рисуется полупрозрачным «призраком». Ваниль делает так же для
@@ -37,6 +39,19 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
         } catch (Throwable ignored) {
             // косметика: при сбое просто не показываем
         }
+    }
+
+    /** HitColor: новая сущность, сбрасываем оверлей предыдущей. */
+    @Inject(method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
+            at = @At("HEAD"), require = 0)
+    private void kitkat$hitReset(CallbackInfo ci) {
+        HitOverlay.reset();
+    }
+
+    /** HitColor: запоминаем оверлей сущности (вспышка урона), чтобы применить его и к броне. */
+    @Inject(method = "getOverlay", at = @At("RETURN"), require = 0)
+    private static void kitkat$hitCapture(CallbackInfoReturnable<Integer> cir) {
+        HitOverlay.setLast(cir.getReturnValueI());
     }
 
     @ModifyConstant(method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",

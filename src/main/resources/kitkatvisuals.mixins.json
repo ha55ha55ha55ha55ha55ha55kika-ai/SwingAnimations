@@ -33,7 +33,10 @@
     "PlayerDisplayNameMixin",
     "PlayerListHudMixin",
     "ChatHudBadgeMixin",
-    "HandledScreenSpawnerMixin"
+    "HandledScreenSpawnerMixin",
+    "OverlayTextureMixin",
+    "ModelHitMixin",
+    "ArmorFeatureRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -12,11 +12,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(InGameHud.class)
 public abstract class InGameHudTitleMixin {
     @Inject(method = "setTitle(Lnet/minecraft/text/Text;)V", at = @At("HEAD"), require = 0)
-    private void swa$title(Text t, CallbackInfo ci) { BlockWarsBotModule.feed(t); }
+    private void swa$title(Text t, CallbackInfo ci) { BlockWarsBotModule.feed(t, 0); }
 
     @Inject(method = "setSubtitle(Lnet/minecraft/text/Text;)V", at = @At("HEAD"), require = 0)
-    private void swa$subtitle(Text t, CallbackInfo ci) { BlockWarsBotModule.feed(t); }
+    private void swa$subtitle(Text t, CallbackInfo ci) { BlockWarsBotModule.feed(t, 1); }
 
     @Inject(method = "setOverlayMessage(Lnet/minecraft/text/Text;Z)V", at = @At("HEAD"), require = 0)
-    private void swa$overlay(Text t, boolean tinted, CallbackInfo ci) { BlockWarsBotModule.feed(t); }
+    private void swa$overlay(Text t, boolean tinted, CallbackInfo ci) { BlockWarsBotModule.feed(t, 2); }
 }

@@ -116,6 +116,8 @@ public final class ModuleManager {
         MODULES.add(theme);
         MODULES.add(new AutoSprintModule());
         MODULES.add(new BlockWarsBotModule());
+        MODULES.add(new HitColorModule());
+        MODULES.add(new ChinaHatModule());
         freeLook = new FreeLookModule();
         MODULES.add(freeLook);
         fullbright = new FullbrightModule();
@@ -238,6 +240,11 @@ public final class ModuleManager {
         } catch (Throwable t) {
             KitKatVisualsClient.LOGGER.error("Ошибка подготовки мирового рендера", t);
         }
+    }
+
+    /** Скрытые функции открыты (секретный код введён в поиске меню). */
+    public static boolean adminUnlocked() {
+        return com.kitkatvisuals.config.ConfigManager.get().adminUnlocked;
     }
 
     // ---------------- сохранение ----------------

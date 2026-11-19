@@ -49,6 +49,9 @@ public abstract class Module {
     /** false: сохранённое «включено» не восстанавливается при запуске игры (например FreeLook). */
     public boolean restoreOnLoad() { return true; }
 
+    /** true: модуль скрыт в меню, пока не введён секретный код в поиске (см. ClickGuiScreen). */
+    public boolean secret() { return false; }
+
     /** true: модуль всегда включён и его нельзя выключить (ни кнопкой, ни клавишей, ни конфигом). */
     public boolean lockedOn() { return false; }
 

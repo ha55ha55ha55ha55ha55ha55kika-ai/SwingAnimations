@@ -11,6 +11,8 @@ import java.util.Set;
 
 public final class SwingConfig {
     public boolean enabled = true;
+    /** Открыты скрытые функции (ввод секретного кода в поиске меню). Сохраняется в конфиге. */
+    public boolean adminUnlocked = false;
     public ItemFilter filter = ItemFilter.SWORDS;
     public List<String> customItems = new ArrayList<>();
     public HandProfile mainHand = new HandProfile();

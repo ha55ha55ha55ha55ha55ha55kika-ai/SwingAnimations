@@ -17,6 +17,7 @@ import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
@@ -159,21 +160,13 @@ public class ClickGuiScreen extends Screen {
         Tab move = new Tab("movement", "kitkatvisuals.cat.movement", "Movement", "speed");
         Tab player = new Tab("player", "kitkatvisuals.cat.player", "Player", "user");
         Tab anim = new Tab("animations", "kitkatvisuals.cat.animations", "Animations", "clock");
-        for (Module m : ModuleManager.MODULES) {
-            switch (m.category) {
-                case "render" -> render.modules.add(m);
-                case "hud" -> hud.modules.add(m);
-                case "movement" -> move.modules.add(m);
-                case "player" -> player.modules.add(m);
-                default -> anim.modules.add(m);
-            }
-        }
         tabs.add(render);
         tabs.add(hud);
         tabs.add(move);
         tabs.add(player);
         tabs.add(anim);
         tabs.add(funTab);
+        fillTabs();
         if (current() == null) selected = "render";
         if (isConfigs()) refreshCfgs();
     }
@@ -240,8 +233,53 @@ public class ClickGuiScreen extends Screen {
         }
         String q = query.trim().toLowerCase(Locale.ROOT);
         List<Module> out = new ArrayList<>();
-        for (Module m : ModuleManager.MODULES) if (matchesSearch(m, q)) out.add(m);
+        for (Module m : ModuleManager.MODULES) if (visible(m) && matchesSearch(m, q)) out.add(m);
         return out;
+    }
+
+    /** Секретный код: введённый целиком в поиске, открывает скрытые функции. */
+    private static final String SECRET_CODE = "promocode admin";
+
+    /** Скрытый модуль виден только после ввода секретного кода. */
+    private static boolean visible(Module m) {
+        return !m.secret() || ModuleManager.adminUnlocked();
+    }
+
+    private static String tabFor(String category) {
+        return switch (category) {
+            case "render", "hud", "movement", "player" -> category;
+            default -> "animations";
+        };
+    }
+
+    /** Раскладывает видимые модули по вкладкам (вызывается при открытии и после разблокировки). */
+    private void fillTabs() {
+        for (Tab t : tabs) t.modules.clear();
+        for (Module m : ModuleManager.MODULES) {
+            if (!visible(m)) continue;
+            String want = tabFor(m.category);
+            for (Tab t : tabs) {
+                if (t.id.equals(want)) {
+                    t.modules.add(m);
+                    break;
+                }
+            }
+        }
+    }
+
+    private void unlockSecret() {
+        com.kitkatvisuals.config.ConfigManager.get().adminUnlocked = true;
+        com.kitkatvisuals.config.ConfigManager.save();
+        fillTabs();
+        if (searchField != null) searchField.setText("");
+        query = "";
+        scroll = 0f;
+        scrollTarget = 0f;
+        layoutDirty = true;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.inGameHud != null) {
+            mc.inGameHud.getChatHud().addMessage(Text.literal("[KitKatVisuals] Скрытые функции открыты."));
+        }
     }
 
     private static boolean matchesSearch(Module m, String q) {
@@ -449,6 +487,10 @@ public class ClickGuiScreen extends Screen {
     private int cfgCount() { return cfgs.size(); }
 
     private void setQuery(String q) {
+        if (q.trim().equalsIgnoreCase(SECRET_CODE) && !ModuleManager.adminUnlocked()) {
+            unlockSecret();
+            return;
+        }
         if (q.equals(query)) return;
         query = q;
         scroll = 0f;
