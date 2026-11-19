@@ -675,5 +675,21 @@
   "kitkatvisuals.setting.world_particles.custom_color": "Свой цвет",
   "kitkatvisuals.setting.world_particles.red": "Красный",
   "kitkatvisuals.setting.world_particles.green": "Зелёный",
-  "kitkatvisuals.setting.world_particles.blue": "Синий"
+  "kitkatvisuals.setting.world_particles.blue": "Синий",
+  "kitkatvisuals.module.clear_liquids": "ClearLiquids",
+  "kitkatvisuals.setting.clear_liquids.water": "Чистая вода (без тумана)",
+  "kitkatvisuals.setting.clear_liquids.lava": "Чистая лава (без тумана)",
+  "kitkatvisuals.setting.clear_liquids.water_overlay": "Убрать пелену воды",
+  "kitkatvisuals.setting.clear_liquids.fire_overlay": "Убрать огонь на экране",
+  "kitkatvisuals.setting.clear_liquids.clarity": "Прозрачность (%)",
+  "kitkatvisuals.module.custom_fov": "CustomFov",
+  "kitkatvisuals.setting.custom_fov.fov": "Поле зрения",
+  "kitkatvisuals.setting.custom_fov.ignore_effects": "Игнорировать спринт, эффекты и лук",
+  "kitkatvisuals.module.zoom": "Zoom",
+  "kitkatvisuals.setting.zoom.factor": "Кратность",
+  "kitkatvisuals.setting.zoom.smooth": "Плавный зум",
+  "kitkatvisuals.setting.zoom.smooth_speed": "Скорость плавности",
+  "kitkatvisuals.setting.zoom.scroll": "Колёсико меняет кратность",
+  "kitkatvisuals.setting.zoom.sensitivity_scale": "Снижать чувствительность",
+  "key.kitkatvisuals.zoom": "Зум (удерживать)"
 }

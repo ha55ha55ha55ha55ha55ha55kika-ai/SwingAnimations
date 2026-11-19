@@ -46,4 +46,20 @@ public abstract class SimpleOptionMixin {
             // косметика
         }
     }
+
+    /** Zoom: на время приближения уменьшает чувствительность мыши (сохранённое значение не меняется). */
+    @Inject(method = "getValue", at = @At("RETURN"), cancellable = true, require = 0)
+    private void kitkat$zoomSensitivity(CallbackInfoReturnable<Object> cir) {
+        com.kitkatvisuals.module.ZoomModule z = ModuleManager.zoom;
+        if (z == null || !z.isEnabled()) return;
+        try {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc == null || mc.options == null) return;
+            if ((Object) this == mc.options.getMouseSensitivity() && cir.getReturnValue() instanceof Double d) {
+                cir.setReturnValue(z.scaleSensitivity(d));
+            }
+        } catch (Throwable ignored) {
+            // косметика
+        }
+    }
 }

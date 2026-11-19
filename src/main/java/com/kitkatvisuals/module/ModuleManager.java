@@ -45,6 +45,9 @@ public final class ModuleManager {
     public static FreeLookModule freeLook;
     public static BlockOutlineModule blockOutline;
     public static RemovalsModule removals;
+    public static ClearLiquidsModule clearLiquids;
+    public static CustomFovModule customFov;
+    public static ZoomModule zoom;
     public static KillEffectModule killEffect;
     public static HitboxesModule hitboxes;
     public static GlowHandModule glowHand;
@@ -119,6 +122,12 @@ public final class ModuleManager {
         MODULES.add(new HitColorModule());
         MODULES.add(new ChinaHatModule());
         MODULES.add(new WorldParticlesModule());
+        clearLiquids = new ClearLiquidsModule();
+        MODULES.add(clearLiquids);
+        customFov = new CustomFovModule();
+        MODULES.add(customFov);
+        zoom = new ZoomModule();
+        MODULES.add(zoom);
         freeLook = new FreeLookModule();
         MODULES.add(freeLook);
         fullbright = new FullbrightModule();

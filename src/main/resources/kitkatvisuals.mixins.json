@@ -36,7 +36,9 @@
     "HandledScreenSpawnerMixin",
     "OverlayTextureMixin",
     "ModelHitMixin",
-    "ArmorFeatureRendererMixin"
+    "ArmorFeatureRendererMixin",
+    "BackgroundRendererMixin",
+    "MouseScrollMixin"
   ],
   "injectors": {
     "defaultRequire": 1

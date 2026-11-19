@@ -19,4 +19,18 @@ public abstract class InGameOverlayRendererMixin {
         RemovalsModule r = ModuleManager.removals;
         if (r != null && r.fireOff()) ci.cancel();
     }
+
+    /** ClearLiquids: синяя пелена воды. */
+    @Inject(method = "renderUnderwaterOverlay", at = @At("HEAD"), cancellable = true, require = 0)
+    private static void kitkat$noWaterOverlay(CallbackInfo ci) {
+        com.kitkatvisuals.module.ClearLiquidsModule m = ModuleManager.clearLiquids;
+        if (m != null && m.waterOverlayOff()) ci.cancel();
+    }
+
+    /** ClearLiquids: огонь на экране (в том числе от лавы). */
+    @Inject(method = "renderFireOverlay", at = @At("HEAD"), cancellable = true, require = 0)
+    private static void kitkat$noFireOverlay(CallbackInfo ci) {
+        com.kitkatvisuals.module.ClearLiquidsModule m = ModuleManager.clearLiquids;
+        if (m != null && m.fireOverlayOff()) ci.cancel();
+    }
 }

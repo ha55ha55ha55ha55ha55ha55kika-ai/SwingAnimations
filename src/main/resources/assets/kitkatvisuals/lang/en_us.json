@@ -486,5 +486,21 @@
   "kitkatvisuals.setting.world_particles.custom_color": "Custom color",
   "kitkatvisuals.setting.world_particles.red": "Red",
   "kitkatvisuals.setting.world_particles.green": "Green",
-  "kitkatvisuals.setting.world_particles.blue": "Blue"
+  "kitkatvisuals.setting.world_particles.blue": "Blue",
+  "kitkatvisuals.module.clear_liquids": "ClearLiquids",
+  "kitkatvisuals.setting.clear_liquids.water": "Clear water fog",
+  "kitkatvisuals.setting.clear_liquids.lava": "Clear lava fog",
+  "kitkatvisuals.setting.clear_liquids.water_overlay": "Hide water overlay",
+  "kitkatvisuals.setting.clear_liquids.fire_overlay": "Hide fire overlay",
+  "kitkatvisuals.setting.clear_liquids.clarity": "Clarity (%)",
+  "kitkatvisuals.module.custom_fov": "CustomFov",
+  "kitkatvisuals.setting.custom_fov.fov": "FOV",
+  "kitkatvisuals.setting.custom_fov.ignore_effects": "Ignore sprint/effects/bow",
+  "kitkatvisuals.module.zoom": "Zoom",
+  "kitkatvisuals.setting.zoom.factor": "Zoom factor",
+  "kitkatvisuals.setting.zoom.smooth": "Smooth zoom",
+  "kitkatvisuals.setting.zoom.smooth_speed": "Smooth speed",
+  "kitkatvisuals.setting.zoom.scroll": "Scroll changes factor",
+  "kitkatvisuals.setting.zoom.sensitivity_scale": "Scale sensitivity",
+  "key.kitkatvisuals.zoom": "Zoom (hold)"
 }

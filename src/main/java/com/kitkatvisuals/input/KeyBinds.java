@@ -30,6 +30,7 @@ public final class KeyBinds {
     public static KeyBinding MINIMAP_ZOOM_IN;
     public static KeyBinding SPAWNER_DUMP;
     public static KeyBinding ANARCHY_FIND;
+    public static KeyBinding ZOOM;
     public static KeyBinding MINIMAP_ZOOM_OUT;
     public static KeyBinding MINIMAP_MARK;
     public static KeyBinding MINIMAP_UNMARK;
@@ -52,6 +53,7 @@ public final class KeyBinds {
         MUSIC_NEXT = reg("music_next", GLFW.GLFW_KEY_UNKNOWN);
         MUSIC_PREV = reg("music_prev", GLFW.GLFW_KEY_UNKNOWN);
         SPAWNER_DUMP = reg("spawner_dump", GLFW.GLFW_KEY_F8);
+        ZOOM = reg("zoom", GLFW.GLFW_KEY_C);
         ANARCHY_FIND = reg("anarchy_find", GLFW.GLFW_KEY_UNKNOWN); // назначается игроком в «Управлении»
         MINIMAP_ZOOM_IN = reg("minimap_zoom_in", GLFW.GLFW_KEY_RIGHT_BRACKET);
         MINIMAP_ZOOM_OUT = reg("minimap_zoom_out", GLFW.GLFW_KEY_LEFT_BRACKET);
