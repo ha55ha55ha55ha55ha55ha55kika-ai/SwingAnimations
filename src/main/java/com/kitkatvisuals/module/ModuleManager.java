@@ -115,6 +115,7 @@ public final class ModuleManager {
         theme = new ThemeModule();
         MODULES.add(theme);
         MODULES.add(new AutoSprintModule());
+        MODULES.add(new BlockWarsBotModule());
         freeLook = new FreeLookModule();
         MODULES.add(freeLook);
         fullbright = new FullbrightModule();

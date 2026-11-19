@@ -17,6 +17,7 @@
     "ItemEntityRendererMixin",
     "ItemEntityRenderStateMixin",
     "InGameHudMixin",
+    "InGameHudTitleMixin",
     "WorldMixin",
     "ClientWorldMixin",
     "SimpleOptionMixin",
