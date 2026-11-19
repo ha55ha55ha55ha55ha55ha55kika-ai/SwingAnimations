@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "swinganimations",
+  "id": "kitkatvisuals",
   "version": "${version}",
-  "name": "SwingAnimations",
+  "name": "KitKatVisuals",
   "description": "Визуальный клиентский мод: ClickGUI, FreeLook, PainDication, BlockOutline, Removals, Music, TargetESP, Trails, JumpCircle, HeartShow, SeeInvisibles, Interface, AutoSprint и анимации удара. Только клиент.",
   "authors": [
     "You"
@@ -11,14 +11,14 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "com.swinganimations.SwingAnimationsClient"
+      "com.kitkatvisuals.KitKatVisualsClient"
     ],
     "modmenu": [
-      "com.swinganimations.compat.ModMenuIntegration"
+      "com.kitkatvisuals.compat.ModMenuIntegration"
     ]
   },
   "mixins": [
-    "swinganimations.mixins.json"
+    "kitkatvisuals.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.16.0",
@@ -29,5 +29,5 @@
   "suggests": {
     "modmenu": "*"
   },
-  "icon": "assets/swinganimations/icon.png"
+  "icon": "assets/kitkatvisuals/icon.png"
 }

@@ -1,0 +1,5 @@
+name: KitKatLinkRelay
+version: 1.0.0
+main: com.kitkatvisuals.relay.KitKatLinkRelay
+api-version: '1.21'
+description: Relay for KitKatVisuals client link (badge and now-playing).
