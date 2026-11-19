@@ -70,18 +70,15 @@ public final class HitColorModule extends Module {
         paint(rgb, alpha);
     }
 
-    /** Пишет ABGR в верхние 8 строк текстуры (как в ванили: альфа в старшем байте, R в младшем). */
+    /** Пишет цвет в верхние 8 строк текстуры. setColorArgb сам переводит ARGB во внутренний формат картинки. */
     private static void paint(int rgb, int alpha) {
         NativeImageBackedTexture t = texture;
         if (t == null) return;
         NativeImage img = t.getImage();
         if (img == null) return;
-        int r = (rgb >> 16) & 0xFF;
-        int g = (rgb >> 8) & 0xFF;
-        int b = rgb & 0xFF;
-        int abgr = ((alpha & 0xFF) << 24) | (b << 16) | (g << 8) | r;
+        int argb = ((alpha & 0xFF) << 24) | (rgb & 0xFFFFFF);
         for (int y = 0; y < 8; y++) {
-            for (int x = 0; x < 16; x++) img.setColor(x, y, abgr);
+            for (int x = 0; x < 16; x++) img.setColorArgb(x, y, argb);
         }
         t.upload();
     }

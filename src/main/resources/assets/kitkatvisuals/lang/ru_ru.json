@@ -662,5 +662,18 @@
   "kitkatvisuals.setting.china_hat.bob": "Покачивание",
   "kitkatvisuals.setting.china_hat.bob_range": "Размах покачивания",
   "kitkatvisuals.setting.china_hat.show_self": "Показывать на мне",
-  "kitkatvisuals.setting.china_hat.show_others": "Показывать на других"
+  "kitkatvisuals.setting.china_hat.show_others": "Показывать на других",
+  "kitkatvisuals.module.world_particles": "WorldParticles",
+  "kitkatvisuals.setting.world_particles.type": "Тип частиц",
+  "kitkatvisuals.setting.world_particles.condition": "Режим работы",
+  "kitkatvisuals.setting.world_particles.density": "Плотность (за тик)",
+  "kitkatvisuals.setting.world_particles.radius": "Радиус спавна",
+  "kitkatvisuals.setting.world_particles.height": "Высота старта",
+  "kitkatvisuals.setting.world_particles.fall_speed": "Скорость падения",
+  "kitkatvisuals.setting.world_particles.drift": "Дрейф",
+  "kitkatvisuals.setting.world_particles.size": "Размер",
+  "kitkatvisuals.setting.world_particles.custom_color": "Свой цвет",
+  "kitkatvisuals.setting.world_particles.red": "Красный",
+  "kitkatvisuals.setting.world_particles.green": "Зелёный",
+  "kitkatvisuals.setting.world_particles.blue": "Синий"
 }

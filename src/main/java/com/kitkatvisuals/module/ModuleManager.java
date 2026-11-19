@@ -118,6 +118,7 @@ public final class ModuleManager {
         MODULES.add(new BlockWarsBotModule());
         MODULES.add(new HitColorModule());
         MODULES.add(new ChinaHatModule());
+        MODULES.add(new WorldParticlesModule());
         freeLook = new FreeLookModule();
         MODULES.add(freeLook);
         fullbright = new FullbrightModule();

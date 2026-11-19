@@ -473,5 +473,18 @@
   "kitkatvisuals.setting.china_hat.bob": "Bobbing",
   "kitkatvisuals.setting.china_hat.bob_range": "Bobbing range",
   "kitkatvisuals.setting.china_hat.show_self": "Show on me",
-  "kitkatvisuals.setting.china_hat.show_others": "Show on others"
+  "kitkatvisuals.setting.china_hat.show_others": "Show on others",
+  "kitkatvisuals.module.world_particles": "WorldParticles",
+  "kitkatvisuals.setting.world_particles.type": "Particle type",
+  "kitkatvisuals.setting.world_particles.condition": "Work mode",
+  "kitkatvisuals.setting.world_particles.density": "Density (per tick)",
+  "kitkatvisuals.setting.world_particles.radius": "Spawn radius",
+  "kitkatvisuals.setting.world_particles.height": "Start height",
+  "kitkatvisuals.setting.world_particles.fall_speed": "Fall speed",
+  "kitkatvisuals.setting.world_particles.drift": "Drift",
+  "kitkatvisuals.setting.world_particles.size": "Size",
+  "kitkatvisuals.setting.world_particles.custom_color": "Custom color",
+  "kitkatvisuals.setting.world_particles.red": "Red",
+  "kitkatvisuals.setting.world_particles.green": "Green",
+  "kitkatvisuals.setting.world_particles.blue": "Blue"
 }
