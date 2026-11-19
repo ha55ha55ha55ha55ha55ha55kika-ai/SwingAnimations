@@ -19,11 +19,13 @@ public final class KitKatVisualsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         migrateOldConfig();
+        com.kitkatvisuals.gui.Tutorial.detect(); // до ConfigManager.load(): иначе файл настроек уже создан
         ConfigManager.load();
         com.kitkatvisuals.module.ModuleManager.init();
         KeyBinds.register();
         com.kitkatvisuals.util.MenuGuard.checkAtStartup(); // если прошлый запуск завис на кастомном меню, оно отключается
         com.kitkatvisuals.gui.MenuSwitch.init();
+        com.kitkatvisuals.gui.Tutorial.init();
         com.kitkatvisuals.fun.FunGame.init();
         com.kitkatvisuals.fun.DebuffTrial.init();
         LOGGER.info("KitKatVisuals initialized (client-only, visual-only).");

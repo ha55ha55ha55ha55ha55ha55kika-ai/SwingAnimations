@@ -24,14 +24,14 @@ public abstract class GameRendererMixin {
     }
 
     /** CustomFov, затем Zoom: один хук на FOV мира (changingFov = false — это FOV руки, его не трогаем). */
-    @Inject(method = "getFov(Lnet/minecraft/client/render/Camera;FZ)D", at = @At("RETURN"), cancellable = true, require = 0)
-    private void kitkat$fov(Camera camera, float tickDelta, boolean changingFov, CallbackInfoReturnable<Double> cir) {
-        if (!changingFov) return;
-        double v = cir.getReturnValueD();
+    @Inject(method = "getFov(Lnet/minecraft/client/render/Camera;FZ)F", at = @At("RETURN"), cancellable = true, require = 0)
+    private void kitkat$fov(Camera camera, float tickDelta, boolean changingFov, CallbackInfoReturnable<Float> cir) {
+        if (!changingFov) return; // в 1.21.4 getFov возвращает float (раньше double)
+        double v = cir.getReturnValueF();
         CustomFovModule f = ModuleManager.customFov;
         if (f != null && f.isEnabled()) v = f.apply(v);
         ZoomModule z = ModuleManager.zoom;
         if (z != null) v = z.apply(v);
-        cir.setReturnValue(v);
+        cir.setReturnValue((float) v);
     }
 }

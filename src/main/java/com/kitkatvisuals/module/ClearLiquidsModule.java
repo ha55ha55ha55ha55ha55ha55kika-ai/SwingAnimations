@@ -1,6 +1,5 @@
 package com.kitkatvisuals.module;
 
-import net.minecraft.client.render.CameraSubmersionType;
 import net.minecraft.util.math.MathHelper;
 
 /**
@@ -27,9 +26,11 @@ public final class ClearLiquidsModule extends Module {
      * Новая дальность тумана {start, end} для воды или лавы; null, если туман не трогаем.
      * viewDistance — дальность прорисовки в блоках.
      */
-    public float[] fogRange(CameraSubmersionType type, float start, float end, float viewDistance) {
-        boolean w = type == CameraSubmersionType.WATER && water.value;
-        boolean l = type == CameraSubmersionType.LAVA && lava.value;
+    public float[] fogRange(Object type, float start, float end, float viewDistance) {
+        // type: CameraSubmersionType. Пакет класса менялся между версиями, поэтому сравниваем по имени константы.
+        String n = type instanceof Enum<?> e ? e.name() : "";
+        boolean w = n.equals("WATER") && water.value;
+        boolean l = n.equals("LAVA") && lava.value;
         if (!w && !l) return null;
         float c = clarity.value / 100f;
         if (c >= 0.999f) return new float[]{Float.MAX_VALUE, Float.MAX_VALUE}; // как у «пустого» тумана

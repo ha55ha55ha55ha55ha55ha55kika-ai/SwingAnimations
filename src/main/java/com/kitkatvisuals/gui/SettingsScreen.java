@@ -101,6 +101,10 @@ public class SettingsScreen extends Screen {
             cfg.rebuildCaches();
         });
         addDrawableChild(field);
+
+        addDrawableChild(new UiButton(LX, 172, 304, 18, UiButton.Kind.PLAIN,
+                () -> Text.translatableWithFallback("kitkatvisuals.tut.open_btn", "Open tutorial"),
+                null, null, () -> Tutorial.open(client, this)));
     }
 
     private void buildProfile(Hand hand, HandProfile hp) {

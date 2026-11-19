@@ -510,7 +510,19 @@ public class ClickGuiScreen extends Screen {
         if (isConfigs()) refreshCfgs();
     }
 
+    /** Кнопка «? Обучение» в правом верхнем углу окна: снова открывает обучение. */
+    private void drawTutorialChip(DrawContext ctx) {
+        Text label = tr("tut.open", "? Tutorial");
+        int bw = Hud.w(label) + 14, bh = 14;
+        int bx = wx + ww - bw - 12, by = wy + 11;
+        Ui.rect(ctx, bx, by, bw, bh, 5, Ui.ACCENT_BG);
+        Ui.outline(ctx, bx, by, bw, bh, 5, Ui.ACCENT_LINE);
+        Hud.text(ctx, label, bx + 7, by + 3, Ui.ACCENT);
+        hits.add(new Hit(bx, by, bw, bh, () -> Tutorial.open(client, this)));
+    }
+
     private void drawHeader(DrawContext ctx, int rgb) {
+        drawTutorialChip(ctx);
         Tab t = current();
         if (t == null) return;
         Text title = tr(t.titleKey.substring("kitkatvisuals.".length()), t.fallback);
