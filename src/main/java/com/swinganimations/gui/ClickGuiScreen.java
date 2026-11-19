@@ -44,6 +44,7 @@ public class ClickGuiScreen extends Screen {
     private static final int SIDEBAR = 124;
     private static final int PAD = 12;
     private static final String CONFIGS = "configs";
+    private static final String FUN = "fun";
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
     private static final Identifier LOGO = Identifier.of("swinganimations", "textures/gui/logo_small.png"); // 128x92
 
@@ -112,12 +113,17 @@ public class ClickGuiScreen extends Screen {
     private final Screen parent;
     private final List<Tab> tabs = new ArrayList<>();
     private final Tab configsTab = new Tab(CONFIGS, "swinganimations.cat.configs", "Configs", "pin");
+    private final Tab funTab = new Tab(FUN, "swinganimations.cat.fun", "Fun", "keys");
+    private final FunPanel fun = new FunPanel();
     private final Set<Module> expanded = new HashSet<>();
     private final List<Row> rows = new ArrayList<>();
     private final List<Block> blocks = new ArrayList<>();
     private final List<Hit> hits = new ArrayList<>();
     private final Map<Object, Spring> springs = new HashMap<>();
     private final long openedAt = System.currentTimeMillis();
+
+    /** true: список модулей нужно пересобрать на этом кадре (меняется редко — по действию, не каждый кадр). */
+    private boolean layoutDirty = true;
 
     private int wx, wy, ww, wh;
     private int lx, lw, ly, lb;
@@ -167,6 +173,7 @@ public class ClickGuiScreen extends Screen {
         tabs.add(move);
         tabs.add(player);
         tabs.add(anim);
+        tabs.add(funTab);
         if (current() == null) selected = "render";
         if (isConfigs()) refreshCfgs();
     }
@@ -176,6 +183,8 @@ public class ClickGuiScreen extends Screen {
     }
 
     private boolean isConfigs() { return CONFIGS.equals(selected); }
+
+    private boolean isFun() { return FUN.equals(selected); }
 
     private Tab current() {
         if (isConfigs()) return configsTab;
@@ -197,6 +206,7 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     protected void init() {
+        layoutDirty = true;
         ww = Math.min(width - 16, MathHelper.clamp((int) (width * 0.66f), 360, 540));
         wh = Math.min(height - 16, MathHelper.clamp((int) (height * 0.80f), 230, 350));
         wx = (width - ww) / 2;
@@ -223,6 +233,7 @@ public class ClickGuiScreen extends Screen {
 
     /** Модули текущей вкладки или, при поиске, все подходящие по названию или настройке (любая вкладка). */
     private List<Module> shownModules() {
+        if (isFun()) return List.of();
         if (query.isBlank()) {
             Tab t = current();
             return t == null ? List.of() : t.modules;
@@ -248,11 +259,18 @@ public class ClickGuiScreen extends Screen {
     private int viewH() { return Math.max(10, lb - listTop()); }
 
     private void layout() {
-        rows.clear();
-        blocks.clear();
         if (isConfigs()) {
             contentH = cfgs.isEmpty() ? 0 : cfgs.size() * 39 - 5;
-        } else {
+            clampScroll();
+            return;
+        }
+        if (!layoutDirty) {
+            clampScroll();
+            return;
+        }
+        rows.clear();
+        blocks.clear();
+        {
             int y = 0;
             {
                 for (Module m : shownModules()) {
@@ -276,6 +294,7 @@ public class ClickGuiScreen extends Screen {
             }
             contentH = Math.max(0, y - 5);
         }
+        layoutDirty = false;
         clampScroll();
     }
 
@@ -298,7 +317,7 @@ public class ClickGuiScreen extends Screen {
     private int rowW(Row r) { return r.kind == Kind.MODULE ? lw - 8 : lw - 8 - 20; }
 
     private Row rowAt(double mx, double my) {
-        if (isConfigs()) return null;
+        if (isConfigs() || isFun()) return null;
         if (mx < lx || mx > lx + lw || my < listTop() || my > lb) return null;
         for (Row r : rows) {
             int ry = rowTop(r);
@@ -339,9 +358,10 @@ public class ClickGuiScreen extends Screen {
 
         drawSidebar(ctx, mx, my, rgb);
         drawHeader(ctx, rgb);
-        if (!isConfigs()) drawSearch(ctx, mx, my, delta, rgb);
-        ctx.enableScissor(lx - 4, listTop(), lx + lw + 4, lb);
+        if (!isConfigs() && !isFun()) drawSearch(ctx, mx, my, delta, rgb);
+        ctx.enableScissor(lx - 4, isFun() ? ly : listTop(), lx + lw + 4, lb);
         if (isConfigs()) drawCfgList(ctx, mx, my, rgb);
+        else if (isFun()) fun.render(ctx, lx, ly, lw - 8, lb - ly, mx, my, rgb);
         else {
             drawModules(ctx, mx, my, rgb);
             if (shownModules().isEmpty()) Hud.text(ctx, tr("ui.search_empty", "Nothing found"), lx + 8, listTop() + 6, Ui.TEXT_DIM);
@@ -419,8 +439,10 @@ public class ClickGuiScreen extends Screen {
         Hud.icon(ctx, t.icon, x + 9, y + (h - 10) / 2, 10);
         int col = sel ? Ui.ACCENT : Ui.TEXT_DIM;
         Hud.text(ctx, tr(t.titleKey.substring("swinganimations.".length()), t.fallback), x + 24, y + (h - 8) / 2, col);
-        int n = t == configsTab ? cfgCount() : t.modules.size();
-        Hud.textRight(ctx, String.valueOf(n), x + w - 8, y + (h - 8) / 2, sel ? Ui.ACCENT : 0x80BEC3CD);
+        if (t != funTab) {
+            int n = t == configsTab ? cfgCount() : t.modules.size();
+            Hud.textRight(ctx, String.valueOf(n), x + w - 8, y + (h - 8) / 2, sel ? Ui.ACCENT : 0x80BEC3CD);
+        }
         hits.add(new Hit(x, y, w, h, () -> selectTab(t)));
     }
 
@@ -431,6 +453,7 @@ public class ClickGuiScreen extends Screen {
         query = q;
         scroll = 0f;
         scrollTarget = 0f;
+        layoutDirty = true;
     }
 
     private void selectTab(Tab t) {
@@ -439,7 +462,9 @@ public class ClickGuiScreen extends Screen {
         scroll = 0f;
         scrollTarget = 0f;
         listening = null;
+        layoutDirty = true;
         if (nameField != null) nameField.setFocused(false);
+        if (searchField != null) searchField.setFocused(false);
         if (isConfigs()) refreshCfgs();
     }
 
@@ -453,7 +478,9 @@ public class ClickGuiScreen extends Screen {
         m.scale(1.3f, 1.3f, 1f);
         Hud.text(ctx, title, 0, 0, Ui.TEXT);
         m.pop();
-        if (isConfigs()) {
+        if (isFun()) {
+            Hud.text(ctx, tr("fun.subtitle", "Try your luck. Red is not your color."), lx, wy + 27, Ui.TEXT_DIM);
+        } else if (isConfigs()) {
             if (status != null) Hud.text(ctx, status, lx, wy + 27, statusColor);
         } else {
             int on = 0;
@@ -746,6 +773,10 @@ public class ClickGuiScreen extends Screen {
                 }
             }
         }
+        if (isFun()) {
+            if (button == 0) fun.click(mx, my);
+            return true;
+        }
         if (!isConfigs()) {
             boolean inSearch = mx >= lx && mx < lx + lw && my >= ly && my < ly + 20;
             if (button == 0) searchField.setFocused(inSearch);
@@ -818,6 +849,7 @@ public class ClickGuiScreen extends Screen {
     }
 
     private void activate(Row r, int button, double mx) {
+        layoutDirty = true; // вкл/выкл, раскрытие и смена режима могут поменять набор видимых строк
         switch (r.kind) {
             case MODULE -> {
                 boolean arrow = mx > rowX(r) + rowW(r) - 20;
@@ -895,6 +927,10 @@ public class ClickGuiScreen extends Screen {
                 nameField.keyPressed(keyCode, scanCode, modifiers);
                 nameDraft = nameField.getText();
             }
+            return true;
+        }
+        if (isFun() && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER || keyCode == GLFW.GLFW_KEY_SPACE)) {
+            com.swinganimations.fun.FunGame.spin();
             return true;
         }
         if (KeyBinds.OPEN != null && KeyBinds.OPEN.matchesKey(keyCode, scanCode)) {
