@@ -5,21 +5,27 @@ import com.kitkatvisuals.cosmetics.CosmeticModel;
 import com.kitkatvisuals.cosmetics.CosmeticState;
 import com.kitkatvisuals.gui.WardrobeScreen;
 import net.minecraft.client.MinecraftClient;
+import com.kitkatvisuals.link.ClientLink;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.util.math.MathHelper;
 import org.joml.Matrix4f;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
- * Cosmetics: косметика на вашем персонаже (крылья, нимб) и гардероб, где можно покрутить скин в 3D, надеть/снять предметы,
- * изменить их размер и положение. Косметика видна только вам (клиентская): серверу и другим игрокам ничего не отправляется.
+ * Cosmetics: косметика на персонаже (крылья, нимб) и гардероб, где можно покрутить скин в 3D, надеть/снять предметы,
+ * изменить их размер и положение. Надетая косметика передаётся через ClientLink (HTTP-реле), поэтому её видят все игроки
+ * с модом на этом сервере, а вы видите их косметику. Игрокам без мода и серверу ничего не отправляется.
  */
 public final class CosmeticsModule extends Module {
     /** Перевод пикселей модели в блоки: игрок рисуется с масштабом 0.9375, 1 пиксель = 1/16 блока. */
@@ -27,10 +33,17 @@ public final class CosmeticsModule extends Module {
 
     private final Setting.Bool openWardrobe = add(new Setting.Bool("wardrobe", "Open wardrobe", false));
     // «id=надет,размер,x,y,z;...»: правится в гардеробе, в ClickGUI не показывается
+    private final Setting.Bool shareMine = add(new Setting.Bool("share", "Show my cosmetics to other mod users", true));
+    private final Setting.Bool showOthers = add(new Setting.Bool("show_others", "See other players' cosmetics", true));
     private final Setting.Str stateStr = add(new Setting.Str("state", "Wardrobe state", ""));
 
     private final Map<String, CosmeticState> states = new HashMap<>();
     private String parsed;
+    /** Разобранная косметика других игроков (по UUID); пересобирается, когда строка у игрока изменилась. */
+    private record Cached(String raw, Map<String, CosmeticState> map) { }
+    private final Map<UUID, Cached> others = new HashMap<>();
+    private static final int MAX_OTHERS = 20;
+    private static final double OTHERS_RANGE = 64.0;
 
     public CosmeticsModule() {
         super("cosmetics", "Cosmetics", "player");
@@ -38,12 +51,13 @@ public final class CosmeticsModule extends Module {
 
     // ---------------- состояние гардероба ----------------
 
-    private void parseIfChanged() {
-        String v = stateStr.value == null ? "" : stateStr.value;
-        if (Objects.equals(v, parsed)) return;
-        parsed = v;
-        states.clear();
+    /** Разбор строки «id=надет,размер,x,y,z;...». Неизвестные предметы и битые записи пропускаются, числа ограничиваются. */
+    private static Map<String, CosmeticState> parseState(String v) {
+        Map<String, CosmeticState> out = new HashMap<>();
+        if (v == null || v.isEmpty() || v.length() > 1000) return out;
+        int n = 0;
         for (String part : v.split(";")) {
+            if (++n > 16) break;
             int eq = part.indexOf('=');
             if (eq <= 0) continue;
             String id = part.substring(0, eq);
@@ -57,11 +71,20 @@ public final class CosmeticsModule extends Module {
                 s.ox = MathHelper.clamp(Float.parseFloat(f[2]), CosmeticState.POS_MIN, CosmeticState.POS_MAX);
                 s.oy = MathHelper.clamp(Float.parseFloat(f[3]), CosmeticState.POS_MIN, CosmeticState.POS_MAX);
                 s.oz = MathHelper.clamp(Float.parseFloat(f[4]), CosmeticState.POS_MIN, CosmeticState.POS_MAX);
-                states.put(id, s);
+                out.put(id, s);
             } catch (NumberFormatException ignored) {
                 // битая запись: предмет вернётся к значениям по умолчанию
             }
         }
+        return out;
+    }
+
+    private void parseIfChanged() {
+        String v = stateStr.value == null ? "" : stateStr.value;
+        if (Objects.equals(v, parsed)) return;
+        parsed = v;
+        states.clear();
+        states.putAll(parseState(v));
     }
 
     public CosmeticState state(CosmeticModel m) {
@@ -83,6 +106,24 @@ public final class CosmeticsModule extends Module {
         ModuleManager.save();
     }
 
+    /**
+     * Что отправляется другим игрокам с модом: только надетые предметы («id=1,размер,x,y,z;...»).
+     * Пустая строка, если модуль выключен или вы отключили «Show my cosmetics to other mod users».
+     */
+    public String shareString() {
+        if (!isEnabled() || !shareMine.value) return "";
+        parseIfChanged();
+        StringBuilder sb = new StringBuilder();
+        for (CosmeticModel m : CosmeticModel.all()) {
+            CosmeticState s = states.get(m.id);
+            if (s == null || !s.equipped) continue;
+            if (sb.length() > 0) sb.append(';');
+            sb.append(m.id).append("=1")
+                    .append(String.format(Locale.ROOT, ",%.3f,%.2f,%.2f,%.2f", s.scale, s.ox, s.oy, s.oz));
+        }
+        return sb.toString();
+    }
+
     public void openWardrobe() {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (!isEnabled()) setEnabled(true);
@@ -96,9 +137,12 @@ public final class CosmeticsModule extends Module {
             openWardrobe.value = false;
             openWardrobe();
         }
+        if (!others.isEmpty() && mc.player != null && mc.player.age % 100 == 0) {
+            others.keySet().removeIf(id -> ClientLink.peer(id) == null); // игрок ушёл или перестал присылать
+        }
     }
 
-    // ---------------- отрисовка на персонаже ----------------
+    // ---------------- отрисовка на персонажах ----------------
 
     private boolean anyEquipped() {
         for (CosmeticModel m : CosmeticModel.all()) if (state(m).equipped) return true;
@@ -106,17 +150,55 @@ public final class CosmeticsModule extends Module {
     }
 
     @Override
-    public boolean wantsWorldRender() { return anyEquipped(); }
+    public boolean wantsWorldRender() { return anyEquipped() || (showOthers.value && ClientLink.anyCosmetics()); }
 
     @Override
     public void render(RenderContext c) {
         MinecraftClient mc = c.mc;
-        ClientPlayerEntity p = mc.player;
-        if (p == null || p.isInvisible() || p.isSpectator() || mc.options.getPerspective().isFirstPerson()) return;
+        ClientPlayerEntity self = mc.player;
+        if (self == null || mc.world == null) return;
+
+        // вы: только не от первого лица
+        if (!mc.options.getPerspective().isFirstPerson()) {
+            parseIfChanged();
+            drawFor(c, self, states);
+        }
+
+        // другие игроки с модом: ближайшие, в пределах дальности
+        if (!showOthers.value || !ClientLink.anyCosmetics()) return;
+        List<PlayerEntity> near = new ArrayList<>();
+        double r2 = OTHERS_RANGE * OTHERS_RANGE;
+        for (PlayerEntity o : mc.world.getPlayers()) {
+            if (o == self || o.isInvisible() || o.isSpectator()) continue;
+            if (ClientLink.cosmeticsOf(o.getUuid()).isEmpty()) continue;
+            if (self.squaredDistanceTo(o) > r2) continue;
+            near.add(o);
+        }
+        near.sort((a, b) -> Double.compare(self.squaredDistanceTo(a), self.squaredDistanceTo(b)));
+        int n = Math.min(near.size(), MAX_OTHERS);
+        for (int i = 0; i < n; i++) {
+            PlayerEntity o = near.get(i);
+            String raw = ClientLink.cosmeticsOf(o.getUuid());
+            Cached cached = others.get(o.getUuid());
+            if (cached == null || !cached.raw().equals(raw)) {
+                cached = new Cached(raw, parseState(raw));
+                others.put(o.getUuid(), cached);
+            }
+            drawFor(c, o, cached.map());
+        }
+    }
+
+    /** Рисует надетые предметы на игроке p по набору состояний st. */
+    private void drawFor(RenderContext c, PlayerEntity p, Map<String, CosmeticState> st) {
+        if (p.isInvisible() || p.isSpectator()) return;
+        boolean any = false;
+        for (CosmeticState s : st.values()) if (s.equipped) { any = true; break; }
+        if (!any) return;
         switch (p.getPose().name()) {
             case "SWIMMING", "GLIDING", "FALL_FLYING", "SLEEPING", "DYING", "SPIN_ATTACK" -> { return; }
             default -> { }
         }
+        MinecraftClient mc = c.mc;
         double x = MathHelper.lerp(c.tickDelta, p.lastRenderX, p.getX());
         double y = MathHelper.lerp(c.tickDelta, p.lastRenderY, p.getY());
         double z = MathHelper.lerp(c.tickDelta, p.lastRenderZ, p.getZ());
@@ -133,8 +215,8 @@ public final class CosmeticsModule extends Module {
 
         VertexConsumerProvider.Immediate vcp = mc.getBufferBuilders().getEntityVertexConsumers();
         for (CosmeticModel cm : CosmeticModel.all()) {
-            CosmeticState s = state(cm);
-            if (!s.equipped) continue;
+            CosmeticState s = st.get(cm.id);
+            if (s == null || !s.equipped) continue;
             RenderLayer main = RenderLayer.getEntityCutoutNoCull(cm.texture);
             VertexConsumer vc = vcp.getBuffer(main);
             CosmeticMesh.emit(vc, m, cm.quads, cm.ax, cm.ay, cm.az, s.scale, s.ox, s.oy, s.oz, light, false, false);

@@ -120,6 +120,7 @@ public final class ModuleManager {
         MODULES.add(theme);
         MODULES.add(new AutoSprintModule());
         MODULES.add(new BlockWarsBotModule());
+        MODULES.add(new BlockWarsEspModule());
         MODULES.add(new HitColorModule());
         MODULES.add(new ChinaHatModule());
         MODULES.add(new WorldParticlesModule());

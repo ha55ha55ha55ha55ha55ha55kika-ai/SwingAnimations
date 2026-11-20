@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""HTTP-реле для ClientLink (когда на сервере нельзя поставить плагин).
+"""HTTP-реле для ClientLink (когда на сервере нельзя поставить плагин). Версия 2: передаёт ещё и косметику,
+чтобы все игроки с модом видели косметику друг друга.
 
-Запуск:   python3 kitkat_relay.py
+Запуск:   python3 swing_relay.py
 При старте сам печатает ссылку для мода и токен (готовые строки для вставки в ClientLinkModule.java).
-Переменные (все необязательные): PORT (если нет, берётся SERVER_PORT панели, иначе 8765), KITKAT_TOKEN (общий секрет; если не задан,
-создаётся случайный и запоминается в kitkat_token.txt рядом со скриптом), PUBLIC_URL (если ссылку не удалось определить сама),
-TRUST_PROXY=1 (если хостинг стоит за прокси).
-Хранит только в памяти: кто сейчас с клиентом на каком сервере и что слушает. Записи живут 90 секунд.
+Переменные (все необязательные): PORT (если нет, берётся SERVER_PORT панели, иначе 8765), KITKAT_TOKEN или SWING_TOKEN (общий секрет;
+если не задан, берётся из swing_token.txt / kitkat_token.txt рядом со скриптом, а если их нет, создаётся случайный и запоминается
+в swing_token.txt), PUBLIC_URL (если ссылку не удалось определить сама), TRUST_PROXY=1 (если хостинг стоит за прокси).
+Токен принимается в заголовке X-KitKat-Token (новый клиент) или X-Swing-Token (старый): обновлять токен не нужно.
+Хранит только в памяти: кто сейчас с клиентом на каком сервере, что слушает и какую косметику носит. Записи живут 90 секунд.
 """
 import hmac
 import json
+import math
 import os
 import re
 import secrets
@@ -22,13 +25,21 @@ from urllib.parse import parse_qs, urlparse
 # --- Настройки (можно поменять тут или задать переменными окружения хостинга) ---
 # Порт: PORT, иначе SERVER_PORT (его выставляют панели Pterodactyl/Wispbyte: это тот порт, который открыт снаружи), иначе 8765.
 PORT = int(os.environ.get("PORT") or os.environ.get("SERVER_PORT") or "8765")
-TOKEN = os.environ.get("KITKAT_TOKEN") or os.environ.get("SWING_TOKEN", "")         # общий пароль; если не задан, создаётся сам (см. load_token)
+TOKEN = os.environ.get("KITKAT_TOKEN") or os.environ.get("SWING_TOKEN", "")   # общий пароль; если не задан, создаётся сам (см. load_token)
 TRUST_PROXY = os.environ.get("TRUST_PROXY", "") == "1"  # 1, если хостинг стоит за прокси (берём IP из X-Forwarded-For)
 TTL = 90                                          # запись живёт 90 с; клиент шлёт /hello каждые 30-45 с
 MAX_SERVERS = 200
 MAX_PER_SERVER = 500
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 NAME_RE = re.compile(r"^[A-Za-z0-9_.]{1,32}$")
+VERSION = 2
+# Косметика: "id=1,размер,x,y,z;id2=1,..." (только надетые предметы). Лимиты те же, что в клиенте (CosmeticState).
+COS_ID_RE = re.compile(r"^[a-z0-9_]{1,40}$")
+COS_MAX_ITEMS = 16
+COS_MAX_LEN = 1000
+COS_SCALE = (0.3, 3.0)
+COS_POS = (-20.0, 20.0)
+MAX_BODY = 4096
 
 DATA = {}   # server -> {uuid: entry}
 HITS = {}   # ip -> [timestamps]
@@ -38,6 +49,33 @@ LOCK = threading.Lock()
 def clean(s):
     s = "".join(ch for ch in str(s) if ord(ch) >= 32 and ch != "\u00a7" and ord(ch) != 127)
     return s.strip()[:80]
+
+
+def sanitize_cosmetics(raw):
+    """Пересобирает строку косметики в безопасный канонический вид; всё лишнее и битое выбрасывает.
+    Возвращает "" если нет ни одного корректного надетого предмета."""
+    if not isinstance(raw, str) or not raw or len(raw) > COS_MAX_LEN:
+        return ""
+    out = []
+    seen = set()
+    for part in raw.split(";")[:COS_MAX_ITEMS]:
+        item, eq, rest = part.partition("=")
+        if not eq or not COS_ID_RE.match(item) or item in seen:
+            continue
+        f = rest.split(",")
+        if len(f) != 5 or f[0] != "1":
+            continue                      # не надет или не тот формат
+        try:
+            nums = [float(x) for x in f[1:]]
+        except ValueError:
+            continue
+        if not all(math.isfinite(x) for x in nums):
+            continue
+        scale = min(max(nums[0], COS_SCALE[0]), COS_SCALE[1])
+        x, y, z = (min(max(v, COS_POS[0]), COS_POS[1]) for v in nums[1:])
+        out.append("%s=1,%.3f,%.2f,%.2f,%.2f" % (item, scale, x, y, z))
+        seen.add(item)
+    return ";".join(out)
 
 
 def purge(now):
@@ -61,28 +99,19 @@ def limited(ip, now):
 
 
 def load_token():
-    """Токен из KITKAT_TOKEN; иначе из kitkat_token.txt; иначе создаём случайный и сохраняем (чтобы не менялся при перезапуске)."""
+    """Токен из SWING_TOKEN; иначе из swing_token.txt; иначе создаём случайный и сохраняем (чтобы не менялся при перезапуске)."""
     if TOKEN:
         return TOKEN
     here = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(here, "kitkat_token.txt")
-    old = os.path.join(here, "swing_token.txt")  # токен из прошлой версии, чтобы пароль не менялся
-    if not os.path.exists(path) and os.path.exists(old):
+    path = os.path.join(here, "swing_token.txt")
+    for name in ("swing_token.txt", "kitkat_token.txt"):   # токен из прошлых версий, чтобы пароль не менялся
         try:
-            with open(old, encoding="utf-8") as f:
-                prev = f.read().strip()
-            if prev:
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(prev + "\n")
+            with open(os.path.join(here, name), encoding="utf-8") as f:
+                t = f.read().strip()
+            if t:
+                return t
         except OSError:
-            pass
-    try:
-        with open(path, encoding="utf-8") as f:
-            t = f.read().strip()
-        if t:
-            return t
-    except OSError:
-        pass
+            continue
     t = secrets.token_urlsafe(18)
     try:
         with open(path, "w", encoding="utf-8") as f:
@@ -105,7 +134,7 @@ def detect_public_url():
             return tmpl % v
     for svc in ("https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"):
         try:
-            req = urllib.request.Request(svc, headers={"User-Agent": "kitkat-relay"})
+            req = urllib.request.Request(svc, headers={"User-Agent": "swing-relay"})
             with urllib.request.urlopen(req, timeout=4) as r:
                 ip = r.read().decode("utf-8").strip()
             if re.match(r"^[0-9a-fA-F:.]{3,45}$", ip):
@@ -118,7 +147,7 @@ def detect_public_url():
 def print_banner(url, token):
     line = "=" * 62
     print(line)
-    print(" KitKatRelay запущен (порт %d)" % PORT)
+    print(" KitKatRelay v%d запущен (порт %d), косметика включена" % (VERSION, PORT))
     print(line)
     if url:
         print(" Ссылка для мода:  " + url)
@@ -143,7 +172,7 @@ def print_banner(url, token):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "KitKatRelay/1.0"
+    server_version = "KitKatRelay/2.0"
 
     def log_message(self, fmt, *args):
         pass
@@ -166,8 +195,13 @@ class Handler(BaseHTTPRequestHandler):
     def _auth(self):
         if not TOKEN:
             return True
-        got = self.headers.get("X-KitKat-Token", "")
-        return hmac.compare_digest(got.encode("utf-8"), TOKEN.encode("utf-8"))
+        # Новый клиент шлёт X-KitKat-Token, старый X-Swing-Token: принимаем оба.
+        want = TOKEN.encode("utf-8")
+        for h in ("X-KitKat-Token", "X-Swing-Token"):
+            got = self.headers.get(h, "")
+            if got and hmac.compare_digest(got.encode("utf-8"), want):
+                return True
+        return False
 
     def do_POST(self):
         now = time.time()
@@ -177,7 +211,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404)
         try:
             n = int(self.headers.get("Content-Length", "0"))
-            if n <= 0 or n > 2048:
+            if n <= 0 or n > MAX_BODY:
                 return self._send(413)
             o = json.loads(self.rfile.read(n).decode("utf-8"))
             server = clean(o["server"]).lower()[:100]
@@ -187,7 +221,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400)
             state = int(o.get("state", 0))
             entry = {"uuid": uid, "name": name, "state": state if state in (0, 1, 2) else 0,
-                     "title": clean(o.get("title", "")), "artist": clean(o.get("artist", "")), "ts": now}
+                     "title": clean(o.get("title", "")), "artist": clean(o.get("artist", "")),
+                     "cosmetics": sanitize_cosmetics(o.get("cosmetics", "")), "ts": now}
         except Exception:
             return self._send(400)
         with LOCK:
@@ -206,7 +241,7 @@ class Handler(BaseHTTPRequestHandler):
         now = time.time()
         u = urlparse(self.path)
         if u.path == "/":
-            return self._send(200, {"ok": True, "service": "kitkat-relay"})  # проверка, что сервис жив
+            return self._send(200, {"ok": True, "service": "swing-relay", "version": VERSION, "features": ["cosmetics"]})  # проверка, что сервис жив
         if not self._auth():
             return self._send(403)
         if u.path != "/peers":

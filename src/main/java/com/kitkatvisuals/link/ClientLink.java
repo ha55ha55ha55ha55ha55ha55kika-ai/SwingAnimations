@@ -63,9 +63,11 @@ public final class ClientLink {
     /** Смена трека отправляется сразу, но не чаще раза в 5 с. */
     private static final long CHANGE_THROTTLE_MS = 5_000L;
     private static final int MAX_TEXT = 80;
+    /** Строка косметики («id=1,размер,x,y,z;...») длиннее обычного текста, поэтому свой лимит. */
+    private static final int MAX_COSMETICS = 600;
 
     /** Запись об игроке: неизменяемая, заменяется целиком. */
-    public record Peer(UUID id, String name, int state, String title, String artist, long seen) {
+    public record Peer(UUID id, String name, int state, String title, String artist, String cosmetics, long seen) {
         public boolean listening() { return state != STATE_NONE && !title.isEmpty(); }
     }
 
@@ -184,6 +186,40 @@ public final class ClientLink {
         return b.toString().trim();
     }
 
+    /** Косметика из сети: только печатные ASCII-символы и ограниченная длина (разбирается и ограничивается ещё раз при показе). */
+    private static String cleanCosmetics(String s) {
+        if (s == null) return "";
+        StringBuilder b = new StringBuilder(Math.min(s.length(), MAX_COSMETICS));
+        for (int i = 0; i < s.length() && b.length() < MAX_COSMETICS; i++) {
+            char c = s.charAt(i);
+            if (c < 32 || c > 126) continue;
+            b.append(c);
+        }
+        return b.toString();
+    }
+
+    /** Строка косметики игрока с клиентом ("" если нет или игрок неизвестен). */
+    public static String cosmeticsOf(UUID id) {
+        Peer p = peer(id);
+        return p == null ? "" : p.cosmetics();
+    }
+
+    /** Есть ли сейчас хотя бы у одного игрока косметика (чтобы не гонять отрисовку впустую). */
+    public static boolean anyCosmetics() {
+        long now = System.currentTimeMillis();
+        for (Peer p : PEERS.values()) if (!p.cosmetics().isEmpty() && now - p.seen() < TTL_MS) return true;
+        return false;
+    }
+
+    private static String myCosmetics() {
+        try {
+            var cm = ModuleManager.cosmetics;
+            return cm == null ? "" : cm.shareString();
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
     static byte[] encode(int state, String title, String artist) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream(96);
         DataOutputStream out = new DataOutputStream(bos);
@@ -204,14 +240,14 @@ public final class ClientLink {
             int state = in.readUnsignedByte();
             String title = clean(in.readUTF());
             String artist = clean(in.readUTF());
-            store(id, "", state, title, artist);
+            store(id, "", state, title, artist, null); // канал косметику не несёт: оставляем то, что пришло по HTTP
         } catch (IOException ignored) {
             // битый пакет: игнорируем
         }
     }
 
     /** Общая точка записи (канал и HTTP): проверяет, что игрок есть в списке сервера. */
-    private static void store(UUID id, String claimedName, int state, String title, String artist) {
+    private static void store(UUID id, String claimedName, int state, String title, String artist, String cosmetics) {
         MinecraftClient mc = MinecraftClient.getInstance();
         ClientPlayNetworkHandler h = mc.getNetworkHandler();
         if (h == null) return;
@@ -220,7 +256,12 @@ public final class ClientLink {
         String name = e.getProfile().getName();
         if (!claimedName.isEmpty() && !claimedName.equalsIgnoreCase(name)) return;
         if (state < 0 || state > 2) state = 0;
-        PEERS.put(id, new Peer(id, name, state, title, artist, System.currentTimeMillis()));
+        String cos = cosmetics;
+        if (cos == null) {
+            Peer old = PEERS.get(id);
+            cos = old == null ? "" : old.cosmetics();
+        }
+        PEERS.put(id, new Peer(id, name, state, title, artist, cos, System.currentTimeMillis()));
     }
 
     // ---------------- отправка (из тика модуля, раз в секунду) ----------------
@@ -245,7 +286,8 @@ public final class ClientLink {
         curState = state;
         curTitle = title;
         curArtist = artist;
-        String key = state + "|" + title + "|" + artist;
+        String cosmetics = myCosmetics();
+        String key = state + "|" + title + "|" + artist + "|" + cosmetics;
         boolean changed = !key.equals(lastSentKey);
 
         // /hello: при входе, раз в 30-45 с и при смене трека (не чаще раза в 5 с). Только если вы не отключили «Share».
@@ -267,7 +309,7 @@ public final class ClientLink {
         }
         if (m.useHttp() && !m.relayUrl().isEmpty() && !serverId(mc).isEmpty()) {
             // Запрос уходит, только если предыдущий уже завершился; иначе повторим через секунду.
-            if (httpSync(mc, m, state, title, artist, dueHello, true)) {
+            if (httpSync(mc, m, state, title, artist, cosmetics, dueHello, true)) {
                 helloDone |= dueHello;
                 pollDone = true;
             }
@@ -308,7 +350,7 @@ public final class ClientLink {
 
     /** @return true, если запрос принят в работу (false: предыдущий ещё идёт). */
     private static boolean httpSync(MinecraftClient mc, ClientLinkModule m, int state, String title, String artist,
-                                    boolean hello, boolean peers) {
+                                    String cosmetics, boolean hello, boolean peers) {
         if (httpBusy) return false;
         httpBusy = true;
         String url = m.relayUrl();
@@ -334,6 +376,7 @@ public final class ClientLink {
                 o.addProperty("state", state);
                 o.addProperty("title", clean(title));
                 o.addProperty("artist", clean(artist));
+                o.addProperty("cosmetics", cleanCosmetics(cosmetics));
                 if (hello) post(url + "/hello", o.toString(), token);
                 if (!peers) return;
                 String json = get(url + "/peers?server=" + java.net.URLEncoder.encode(server, StandardCharsets.UTF_8), token);
@@ -350,7 +393,9 @@ public final class ClientLink {
                             int st = p.has("state") ? p.get("state").getAsInt() : 0;
                             String tt = clean(p.has("title") ? p.get("title").getAsString() : "");
                             String ar = clean(p.has("artist") ? p.get("artist").getAsString() : "");
-                            mc.execute(() -> store(id, nm, st, tt, ar));
+                            String cs = cleanCosmetics(p.has("cosmetics") && p.get("cosmetics").isJsonPrimitive()
+                                    ? p.get("cosmetics").getAsString() : "");
+                            mc.execute(() -> store(id, nm, st, tt, ar, cs));
                         } catch (RuntimeException badEntry) {
                             // битая запись: пропускаем только её
                         }
