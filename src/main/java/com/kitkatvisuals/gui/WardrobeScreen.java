@@ -181,8 +181,9 @@ public final class WardrobeScreen extends Screen {
         ms.translate(-8f, -16f, -8f);
         Matrix4f m = ms.peek().getPositionMatrix();
 
+        ctx.draw(); // сначала дорисовать уже накопленные панели, иначе они лягут поверх модели
         ctx.enableScissor(vx + 2, vy + 2, vx + vw - 2, vy + vh - 2);
-        VertexConsumerProvider.Immediate vcp = ctx.getVertexConsumers();
+        VertexConsumerProvider.Immediate vcp = mc.getBufferBuilders().getEntityVertexConsumers();
 
         // группы (тело и каждая косметика) рисуем от дальней к ближней, внутри группы квады тоже по глубине
         record Group(float depth, Runnable draw) { }

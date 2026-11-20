@@ -120,7 +120,7 @@ public final class CosmeticsModule extends Module {
         double x = MathHelper.lerp(c.tickDelta, p.lastRenderX, p.getX());
         double y = MathHelper.lerp(c.tickDelta, p.lastRenderY, p.getY());
         double z = MathHelper.lerp(c.tickDelta, p.lastRenderZ, p.getZ());
-        float yaw = MathHelper.lerpAngleDegrees(c.tickDelta, p.lastBodyYaw, p.bodyYaw);
+        float yaw = MathHelper.lerpAngleDegrees(c.tickDelta, p.prevBodyYaw, p.bodyYaw);
         int light = mc.getEntityRenderDispatcher().getLight(p, c.tickDelta);
 
         // пространство модели (пиксели, Y вверх, перед = -Z) -> мир. Игрок смотрит в +Z при нулевом повороте тела.
