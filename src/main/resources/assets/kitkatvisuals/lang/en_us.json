@@ -459,6 +459,7 @@
   "kitkatvisuals.value.newest first": "Newest first",
   "kitkatvisuals.setting.block_wars_bot.debug": "Log received texts to chat",
   "kitkatvisuals.setting.block_wars_esp.range": "Range",
+  "kitkatvisuals.setting.block_wars_esp.path": "Path to nearest block",
   "kitkatvisuals.setting.block_wars_esp.arrows": "Arrows above target blocks",
   "kitkatvisuals.setting.block_wars_esp.outline": "Outline target blocks",
   "kitkatvisuals.setting.block_wars_esp.beam": "Beam over nearest block",

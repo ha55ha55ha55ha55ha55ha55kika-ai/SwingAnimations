@@ -648,6 +648,7 @@
   "kitkatvisuals.value.newest first": "Сначала новые",
   "kitkatvisuals.setting.block_wars_bot.debug": "Писать полученные тексты в чат",
   "kitkatvisuals.setting.block_wars_esp.range": "Радиус",
+  "kitkatvisuals.setting.block_wars_esp.path": "Путь до ближайшего блока",
   "kitkatvisuals.setting.block_wars_esp.arrows": "Стрелки над блоками",
   "kitkatvisuals.setting.block_wars_esp.outline": "Контур блоков цели",
   "kitkatvisuals.setting.block_wars_esp.beam": "Луч над ближайшим блоком",
