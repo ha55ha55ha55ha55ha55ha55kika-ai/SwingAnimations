@@ -571,5 +571,10 @@
   "kitkatvisuals.tut.mod.tnt_timer": "Timer above lit TNT: from green to red as it nears the explosion.",
   "kitkatvisuals.tut.mod.trails": "A glowing trail behind the player.",
   "kitkatvisuals.tut.mod.world_particles": "Ambient particles around you: snow, ash, dust.",
-  "kitkatvisuals.tut.mod.zoom": "Zoom in while the key is held (C by default); the mouse wheel changes the magnification."
+  "kitkatvisuals.tut.mod.zoom": "Zoom in while the key is held (C by default); the mouse wheel changes the magnification.",
+  "kitkatvisuals.module.cosmetics": "Cosmetics",
+  "kitkatvisuals.setting.cosmetics.wardrobe": "Open wardrobe",
+  "kitkatvisuals.cosmetic.fallen_angel_wings": "Fallen angel wings",
+  "kitkatvisuals.cosmetic.angel_halo": "Halo",
+  "key.kitkatvisuals.wardrobe": "Wardrobe"
 }

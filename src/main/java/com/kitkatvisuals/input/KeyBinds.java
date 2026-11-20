@@ -31,6 +31,7 @@ public final class KeyBinds {
     public static KeyBinding SPAWNER_DUMP;
     public static KeyBinding ANARCHY_FIND;
     public static KeyBinding ZOOM;
+    public static KeyBinding WARDROBE;
     public static KeyBinding MINIMAP_ZOOM_OUT;
     public static KeyBinding MINIMAP_MARK;
     public static KeyBinding MINIMAP_UNMARK;
@@ -54,6 +55,7 @@ public final class KeyBinds {
         MUSIC_PREV = reg("music_prev", GLFW.GLFW_KEY_UNKNOWN);
         SPAWNER_DUMP = reg("spawner_dump", GLFW.GLFW_KEY_F8);
         ZOOM = reg("zoom", GLFW.GLFW_KEY_C);
+        WARDROBE = reg("wardrobe", GLFW.GLFW_KEY_UNKNOWN); // назначается игроком в «Управлении»
         ANARCHY_FIND = reg("anarchy_find", GLFW.GLFW_KEY_UNKNOWN); // назначается игроком в «Управлении»
         MINIMAP_ZOOM_IN = reg("minimap_zoom_in", GLFW.GLFW_KEY_RIGHT_BRACKET);
         MINIMAP_ZOOM_OUT = reg("minimap_zoom_out", GLFW.GLFW_KEY_LEFT_BRACKET);
@@ -82,6 +84,10 @@ public final class KeyBinds {
         while (EVENT_SEARCH.wasPressed()) {
             com.kitkatvisuals.module.EventHudModule ev = com.kitkatvisuals.module.ModuleManager.eventHud;
             if (ev != null && mc.currentScreen == null) ev.openSearch();
+        }
+        while (WARDROBE.wasPressed()) {
+            com.kitkatvisuals.module.CosmeticsModule cos = com.kitkatvisuals.module.ModuleManager.cosmetics;
+            if (cos != null && mc.currentScreen == null) cos.openWardrobe();
         }
         while (ANARCHY_FIND.wasPressed()) {
             com.kitkatvisuals.module.AnarchyFinderModule af = com.kitkatvisuals.module.ModuleManager.anarchyFinder;

@@ -760,5 +760,10 @@
   "kitkatvisuals.tut.mod.tnt_timer": "Таймер над зажжённым динамитом: от зелёного к красному по мере взрыва.",
   "kitkatvisuals.tut.mod.trails": "Светящийся след за игроком.",
   "kitkatvisuals.tut.mod.world_particles": "Атмосферные частицы вокруг: снег, пепел, пыль.",
-  "kitkatvisuals.tut.mod.zoom": "Приближение, пока зажата клавиша (по умолчанию C); колёсико мыши меняет кратность."
+  "kitkatvisuals.tut.mod.zoom": "Приближение, пока зажата клавиша (по умолчанию C); колёсико мыши меняет кратность.",
+  "kitkatvisuals.module.cosmetics": "Косметика",
+  "kitkatvisuals.setting.cosmetics.wardrobe": "Открыть гардероб",
+  "kitkatvisuals.cosmetic.fallen_angel_wings": "Крылья падшего ангела",
+  "kitkatvisuals.cosmetic.angel_halo": "Нимб",
+  "key.kitkatvisuals.wardrobe": "Гардероб"
 }

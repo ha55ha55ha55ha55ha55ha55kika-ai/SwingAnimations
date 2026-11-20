@@ -48,6 +48,7 @@ public final class ModuleManager {
     public static ClearLiquidsModule clearLiquids;
     public static CustomFovModule customFov;
     public static ZoomModule zoom;
+    public static CosmeticsModule cosmetics;
     public static KillEffectModule killEffect;
     public static HitboxesModule hitboxes;
     public static GlowHandModule glowHand;
@@ -128,6 +129,8 @@ public final class ModuleManager {
         MODULES.add(customFov);
         zoom = new ZoomModule();
         MODULES.add(zoom);
+        cosmetics = new CosmeticsModule();
+        MODULES.add(cosmetics);
         freeLook = new FreeLookModule();
         MODULES.add(freeLook);
         fullbright = new FullbrightModule();
