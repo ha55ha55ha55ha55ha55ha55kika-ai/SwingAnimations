@@ -38,7 +38,8 @@
     "ModelHitMixin",
     "ArmorFeatureRendererMixin",
     "BackgroundRendererMixin",
-    "MouseScrollMixin"
+    "MouseScrollMixin",
+    "HandledScreenAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

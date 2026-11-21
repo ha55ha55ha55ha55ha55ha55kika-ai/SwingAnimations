@@ -629,5 +629,21 @@
   "kitkatvisuals.msg.mace_kill": "[Mace] %1$s: killed, at least -%2$s",
   "kitkatvisuals.msg.mace_hit_absorb": "[Mace] %1$s: -%2$s (absorption %3$s), %4$s left",
   "kitkatvisuals.msg.mace_hit": "[Mace] %1$s: -%2$s, %3$s left",
-  "kitkatvisuals.msg.mace_fall": " | fall %1$s m"
+  "kitkatvisuals.msg.mace_fall": " | fall %1$s m",
+  "kitkatvisuals.module.item_pickup": "ItemPickupLogger",
+  "kitkatvisuals.module.armor_durability": "ArmorDurability",
+  "kitkatvisuals.tut.mod.item_pickup": "Shows picked-up items (icon, name, amount) and highlights the slot they landed in.",
+  "kitkatvisuals.tut.mod.armor_durability": "Colors armor durability green to red: your own armor on the HUD and other players' armor above their heads.",
+  "kitkatvisuals.setting.item_pickup.duration": "Duration (ms)",
+  "kitkatvisuals.setting.item_pickup.max_entries": "Max entries",
+  "kitkatvisuals.setting.item_pickup.show_name": "Show item name",
+  "kitkatvisuals.setting.item_pickup.highlight_hotbar": "Highlight hotbar slot",
+  "kitkatvisuals.setting.item_pickup.highlight_inventory": "Highlight inventory slot",
+  "kitkatvisuals.setting.armor_durability.self": "Own armor panel",
+  "kitkatvisuals.setting.armor_durability.enemies": "Show on players",
+  "kitkatvisuals.setting.armor_durability.style": "Color style",
+  "kitkatvisuals.setting.armor_durability.percent": "Show percent",
+  "kitkatvisuals.setting.armor_durability.range": "Range (blocks)",
+  "kitkatvisuals.setting.armor_durability.max_players": "Max players",
+  "kitkatvisuals.setting.armor_durability.visible_only": "Only visible players"
 }

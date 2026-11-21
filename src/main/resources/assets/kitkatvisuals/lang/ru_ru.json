@@ -825,5 +825,21 @@
   "kitkatvisuals.msg.mace_kill": "[Mace] %1$s: убит, не менее -%2$s",
   "kitkatvisuals.msg.mace_hit_absorb": "[Mace] %1$s: -%2$s (поглощение %3$s), осталось %4$s",
   "kitkatvisuals.msg.mace_hit": "[Mace] %1$s: -%2$s, осталось %3$s",
-  "kitkatvisuals.msg.mace_fall": " | падение %1$s м"
+  "kitkatvisuals.msg.mace_fall": " | падение %1$s м",
+  "kitkatvisuals.module.item_pickup": "ItemPickupLogger",
+  "kitkatvisuals.module.armor_durability": "ArmorDurability",
+  "kitkatvisuals.tut.mod.item_pickup": "Показывает подобранные предметы (иконка, название, количество) и подсвечивает слот, куда они легли.",
+  "kitkatvisuals.tut.mod.armor_durability": "Красит прочность брони от зелёного к красному: своя на HUD, чужая над головами игроков.",
+  "kitkatvisuals.setting.item_pickup.duration": "Длительность (мс)",
+  "kitkatvisuals.setting.item_pickup.max_entries": "Макс. записей",
+  "kitkatvisuals.setting.item_pickup.show_name": "Показывать название",
+  "kitkatvisuals.setting.item_pickup.highlight_hotbar": "Подсветка слота в хотбаре",
+  "kitkatvisuals.setting.item_pickup.highlight_inventory": "Подсветка слота в инвентаре",
+  "kitkatvisuals.setting.armor_durability.self": "Панель своей брони",
+  "kitkatvisuals.setting.armor_durability.enemies": "Показывать на игроках",
+  "kitkatvisuals.setting.armor_durability.style": "Стиль цвета",
+  "kitkatvisuals.setting.armor_durability.percent": "Показывать проценты",
+  "kitkatvisuals.setting.armor_durability.range": "Дальность (блоки)",
+  "kitkatvisuals.setting.armor_durability.max_players": "Макс. игроков",
+  "kitkatvisuals.setting.armor_durability.visible_only": "Только видимые игроки"
 }

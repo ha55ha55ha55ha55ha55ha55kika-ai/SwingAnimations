@@ -151,6 +151,8 @@ public final class ModuleManager {
         MODULES.add(anarchyFinder);
         MODULES.add(new AutoToolModule());
         MODULES.add(new MaceHelperModule());
+        MODULES.add(new ItemPickupLoggerModule());
+        MODULES.add(new ArmorDurabilityModule());
         com.kitkatvisuals.gui.HudLayout.load();
         ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
             if (!(screen instanceof ChatScreen)) return;
