@@ -39,7 +39,12 @@
     "ArmorFeatureRendererMixin",
     "BackgroundRendererMixin",
     "MouseScrollMixin",
-    "HandledScreenAccessor"
+    "HandledScreenAccessor",
+    "RenderStateOwnerMixin",
+    "ArmorOwnerMixin",
+    "ArmorColorMixin",
+    "ModelColorMixin",
+    "TotemFloatingItemMixin"
   ],
   "injectors": {
     "defaultRequire": 1

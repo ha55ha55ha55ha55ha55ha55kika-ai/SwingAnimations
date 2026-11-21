@@ -59,6 +59,7 @@ public final class ModuleManager {
     public static MinimapModule minimap;
     public static SpawnerSearchModule spawnerSearch;
     public static AnarchyFinderModule anarchyFinder;
+    public static TotemEffectModule totemEffect;
     private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
     private static final int MAX_RENDER_ERRORS = 5;
 
@@ -153,6 +154,9 @@ public final class ModuleManager {
         MODULES.add(new MaceHelperModule());
         MODULES.add(new ItemPickupLoggerModule());
         MODULES.add(new ArmorDurabilityModule());
+        totemEffect = new TotemEffectModule();
+        MODULES.add(totemEffect);
+        MODULES.add(new ArmorColorModule());
         com.kitkatvisuals.gui.HudLayout.load();
         ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
             if (!(screen instanceof ChatScreen)) return;
