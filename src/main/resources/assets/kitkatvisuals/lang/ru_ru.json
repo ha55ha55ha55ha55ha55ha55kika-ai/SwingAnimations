@@ -808,5 +808,22 @@
   "kitkatvisuals.value.top right": "Справа сверху",
   "kitkatvisuals.value.top left": "Слева сверху",
   "kitkatvisuals.value.bottom right": "Справа снизу",
-  "kitkatvisuals.value.bottom left": "Слева снизу"
+  "kitkatvisuals.value.bottom left": "Слева снизу",
+  "kitkatvisuals.module.auto_tool": "AutoTool",
+  "kitkatvisuals.module.mace_helper": "MaceHelper",
+  "kitkatvisuals.tut.mod.auto_tool": "Выбирает самый быстрый инструмент в хотбаре, пока вы ломаете блок, и потом возвращает прежний слот.",
+  "kitkatvisuals.tut.mod.mace_helper": "После удара булавой пишет в чат, сколько здоровья потерял противник (с учётом поглощения).",
+  "kitkatvisuals.setting.auto_tool.prefer": "Предпочитать зачарование",
+  "kitkatvisuals.setting.auto_tool.save_tools": "Не ломать инструменты",
+  "kitkatvisuals.setting.auto_tool.restore": "Возвращать прежний слот",
+  "kitkatvisuals.setting.auto_tool.restore_delay": "Задержка возврата (тики)",
+  "kitkatvisuals.setting.mace_helper.units": "Единицы",
+  "kitkatvisuals.setting.mace_helper.show_absorption": "Показывать долю поглощения",
+  "kitkatvisuals.setting.mace_helper.show_fall": "Показывать высоту падения",
+  "kitkatvisuals.setting.mace_helper.wait_ticks": "Ожидание сервера (тики)",
+  "kitkatvisuals.msg.mace_none": "[Mace] %1$s: урона не обнаружено (блок или сервер скрывает здоровье)",
+  "kitkatvisuals.msg.mace_kill": "[Mace] %1$s: убит, не менее -%2$s",
+  "kitkatvisuals.msg.mace_hit_absorb": "[Mace] %1$s: -%2$s (поглощение %3$s), осталось %4$s",
+  "kitkatvisuals.msg.mace_hit": "[Mace] %1$s: -%2$s, осталось %3$s",
+  "kitkatvisuals.msg.mace_fall": " | падение %1$s м"
 }

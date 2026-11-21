@@ -612,5 +612,22 @@
   "kitkatvisuals.value.gore": "Gore",
   "kitkatvisuals.value.freeze": "Freeze",
   "kitkatvisuals.value.burn": "Burn",
-  "kitkatvisuals.value.telekinesis": "Telekinesis"
+  "kitkatvisuals.value.telekinesis": "Telekinesis",
+  "kitkatvisuals.module.auto_tool": "AutoTool",
+  "kitkatvisuals.module.mace_helper": "MaceHelper",
+  "kitkatvisuals.tut.mod.auto_tool": "Picks the fastest hotbar tool while you break a block, then returns your previous slot.",
+  "kitkatvisuals.tut.mod.mace_helper": "After a mace hit, prints how much health the target lost (absorption included).",
+  "kitkatvisuals.setting.auto_tool.prefer": "Prefer enchant",
+  "kitkatvisuals.setting.auto_tool.save_tools": "Avoid breaking tools",
+  "kitkatvisuals.setting.auto_tool.restore": "Restore previous slot",
+  "kitkatvisuals.setting.auto_tool.restore_delay": "Restore delay (ticks)",
+  "kitkatvisuals.setting.mace_helper.units": "Units",
+  "kitkatvisuals.setting.mace_helper.show_absorption": "Show absorption part",
+  "kitkatvisuals.setting.mace_helper.show_fall": "Show fall distance",
+  "kitkatvisuals.setting.mace_helper.wait_ticks": "Wait for server (ticks)",
+  "kitkatvisuals.msg.mace_none": "[Mace] %1$s: no damage detected (blocked, or the server hides health)",
+  "kitkatvisuals.msg.mace_kill": "[Mace] %1$s: killed, at least -%2$s",
+  "kitkatvisuals.msg.mace_hit_absorb": "[Mace] %1$s: -%2$s (absorption %3$s), %4$s left",
+  "kitkatvisuals.msg.mace_hit": "[Mace] %1$s: -%2$s, %3$s left",
+  "kitkatvisuals.msg.mace_fall": " | fall %1$s m"
 }

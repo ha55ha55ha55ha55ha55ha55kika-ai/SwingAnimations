@@ -149,6 +149,8 @@ public final class ModuleManager {
         MODULES.add(spawnerSearch);
         anarchyFinder = new AnarchyFinderModule();
         MODULES.add(anarchyFinder);
+        MODULES.add(new AutoToolModule());
+        MODULES.add(new MaceHelperModule());
         com.kitkatvisuals.gui.HudLayout.load();
         ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
             if (!(screen instanceof ChatScreen)) return;
