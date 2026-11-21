@@ -426,6 +426,11 @@ public final class ClientLink {
         return c;
     }
 
+    /** Доступ из DiaryLog к тому же POST-хелперу, что использует /hello (тот же executor вызывающей стороны). */
+    public static void postDiary(String url, String json, String token) throws IOException {
+        post(url, json, token);
+    }
+
     private static void post(String url, String json, String token) throws IOException {
         HttpURLConnection c = open(url, "POST", token);
         c.setDoOutput(true);

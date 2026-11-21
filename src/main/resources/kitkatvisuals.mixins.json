@@ -13,6 +13,7 @@
     "LivingEntityRenderStateMixin",
     "HandledScreenMixin",
     "ClientPlayerEntityMixin",
+    "ChatCommandMixin",
     "EntityRenderDispatcherMixin",
     "ItemEntityRendererMixin",
     "ItemEntityRenderStateMixin",

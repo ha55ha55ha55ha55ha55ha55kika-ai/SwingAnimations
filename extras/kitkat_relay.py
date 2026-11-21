@@ -40,6 +40,10 @@ COS_MAX_LEN = 1000
 COS_SCALE = (0.3, 3.0)
 COS_POS = (-20.0, 20.0)
 MAX_BODY = 4096
+# Дневник ("/l <текст>" в игре): построчный JSON-лог, независимо от DATA (не имеет TTL, не теряется).
+DIARY_LOG = os.environ.get("DIARY_LOG") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "diary.log")
+DIARY_MAX_LEN = 400
+DIARY_LOCK = threading.Lock()
 
 DATA = {}   # server -> {uuid: entry}
 HITS = {}   # ip -> [timestamps]
@@ -76,6 +80,14 @@ def sanitize_cosmetics(raw):
         out.append("%s=1,%.3f,%.2f,%.2f,%.2f" % (item, scale, x, y, z))
         seen.add(item)
     return ";".join(out)
+
+
+def clean_diary(s):
+    """Как clean(), но с лимитом длины дневниковой записи (он больше, чем у короткого текста трека)."""
+    if not isinstance(s, str):
+        return ""
+    s = "".join(ch for ch in s if ord(ch) >= 32 and ch != "\u00a7" and ord(ch) != 127)
+    return s.strip()[:DIARY_MAX_LEN]
 
 
 def purge(now):
@@ -207,8 +219,14 @@ class Handler(BaseHTTPRequestHandler):
         now = time.time()
         if not self._auth():
             return self._send(403)
-        if urlparse(self.path).path != "/hello":
-            return self._send(404)
+        path = urlparse(self.path).path
+        if path == "/hello":
+            return self._do_hello(now)
+        if path == "/diary":
+            return self._do_diary(now)
+        return self._send(404)
+
+    def _do_hello(self, now):
         try:
             n = int(self.headers.get("Content-Length", "0"))
             if n <= 0 or n > MAX_BODY:
@@ -237,11 +255,38 @@ class Handler(BaseHTTPRequestHandler):
             d[uid] = entry
         self._send(200)
 
+    def _do_diary(self, now):
+        """/l <текст> в игре: клиент шлёт сюда копию для постоянного лога (не влияет на DATA/TTL)."""
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+            if n <= 0 or n > MAX_BODY:
+                return self._send(413)
+            o = json.loads(self.rfile.read(n).decode("utf-8"))
+            server = clean(o["server"]).lower()[:100]
+            uid = str(o["uuid"]).lower()
+            name = str(o["name"])
+            text = clean_diary(o.get("text", ""))
+            if not server or not UUID_RE.match(uid) or not NAME_RE.match(name) or not text:
+                return self._send(400)
+        except Exception:
+            return self._send(400)
+        with LOCK:
+            if limited(self._ip(), now):
+                return self._send(429)
+        line = json.dumps({"ts": now, "server": server, "uuid": uid, "name": name, "text": text}, ensure_ascii=False)
+        try:
+            with DIARY_LOCK:
+                with open(DIARY_LOG, "a", encoding="utf-8") as f:
+                    f.write(line + "\n")
+        except OSError:
+            return self._send(500)
+        self._send(200)
+
     def do_GET(self):
         now = time.time()
         u = urlparse(self.path)
         if u.path == "/":
-            return self._send(200, {"ok": True, "service": "swing-relay", "version": VERSION, "features": ["cosmetics"]})  # проверка, что сервис жив
+            return self._send(200, {"ok": True, "service": "swing-relay", "version": VERSION, "features": ["cosmetics", "diary"]})  # проверка, что сервис жив
         if not self._auth():
             return self._send(403)
         if u.path != "/peers":
