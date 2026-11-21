@@ -21,7 +21,7 @@ public abstract class WorldMixin {
         swa$time(cir);
     }
 
-    @Inject(method = "getLunarTime", at = @At("RETURN"), cancellable = true, require = 0)
+    @Inject(method = "getLunarTime()J", at = @At("RETURN"), cancellable = true, require = 0)
     private void swa$lunarTime(CallbackInfoReturnable<Long> cir) {
         swa$time(cir);
     }
