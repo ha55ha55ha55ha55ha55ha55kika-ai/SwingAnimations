@@ -21,6 +21,7 @@ import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.block.BlockState;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
@@ -61,10 +62,22 @@ public final class PredictionModule extends Module {
     private final Setting.Bool hitBox = add(new Setting.Bool("hitbox", "Highlight target", true));
     private final Setting.Bool xray = add(new Setting.Bool("xray", "Show through blocks", false));
     private final Setting.Bool hudInfo = add(new Setting.Bool("hud", "Info on screen", true));
+    private final Setting.Bool pip = add(new Setting.Bool("pip", "Mini viewport", true));
+    private final Setting.Bool pipPearl = add(new Setting.Bool("pip_pearl", "Viewport: only ender pearl", true)
+            .<Setting.Bool>visibleWhen(() -> this.pip.value));
+    private final Setting.Mode pipView = add(new Setting.Mode("pip_view", "Viewport view", "Top", "Side")
+            .<Setting.Mode>visibleWhen(() -> this.pip.value));
+    private final Setting.Mode pipCorner = add(new Setting.Mode("pip_corner", "Viewport corner", "Top right", "Top left", "Bottom right", "Bottom left")
+            .<Setting.Mode>visibleWhen(() -> this.pip.value));
+    private final Setting.Num pipSize = add(new Setting.Num("pip_size", "Viewport size", 120f, 80f, 220f, 10f)
+            .<Setting.Num>visibleWhen(() -> this.pip.value));
+    private final Setting.Num pipRadius = add(new Setting.Num("pip_radius", "Viewport zoom (blocks)", 12f, 5f, 32f, 1f)
+            .<Setting.Num>visibleWhen(() -> this.pip.value && this.pipView.is("Top")));
     private final ColorSettings color = new ColorSettings(this);
 
     // выбранный предмет
     private Kind kind;
+    private boolean pearl;
     private float power;
     private boolean dim;
 
@@ -116,6 +129,7 @@ public final class PredictionModule extends Module {
     }
 
     private boolean select(ClientPlayerEntity p, float td) {
+        pearl = false;
         Hand[] hands = {Hand.MAIN_HAND, Hand.OFF_HAND};
         for (Hand h : hands) {
             ItemStack st = p.getStackInHand(h);
@@ -152,6 +166,7 @@ public final class PredictionModule extends Module {
                 Kind k = throwKind(it);
                 if (k != null) {
                     kind = k;
+                    pearl = it == Items.ENDER_PEARL;
                     power = 1f;
                     dim = p.getItemCooldownManager().getCooldownProgress(st, 0f) > 0f;
                     return true;
@@ -514,7 +529,15 @@ public final class PredictionModule extends Module {
     @Override
     public void renderHud(DrawContext ctx, float tickDelta) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (!hudInfo.value || !valid || mc.options.hudHidden || System.currentTimeMillis() - lastRender > 150L) return;
+        if (!valid || mc.options.hudHidden || System.currentTimeMillis() - lastRender > 150L) return;
+        if (pip.value && (!pipPearl.value || pearl)) {
+            try {
+                drawPip(ctx, mc);
+            } catch (RuntimeException ignored) {
+                // мини-окно вторично: сбой выборки блоков не должен ронять HUD
+            }
+        }
+        if (!hudInfo.value) return;
         int sw = ctx.getScaledWindowWidth();
         int sh = ctx.getScaledWindowHeight();
         if (kind != null && kind.bow() && power < 1f) {
@@ -538,5 +561,160 @@ public final class PredictionModule extends Module {
         int my = Math.round(projOut[1]);
         ctx.fill(mx - 1, my - 4, mx + 1, my + 4, accent);
         ctx.fill(mx - 4, my - 1, mx + 4, my + 1, accent);
+    }
+
+    // ---------------- мини-окно (PiP) ----------------
+
+    private static final int PIP_CELL = 3;
+    private int[] pipCol = new int[0];
+    private int pipCols, pipRows;
+    private long pipKey = Long.MIN_VALUE, pipBuilt;
+    private final BlockPos.Mutable pipPos = new BlockPos.Mutable();
+
+    /**
+     * Мини-окно «камеры предикции»: вид сверху (карта блоков вокруг точки падения) или сбоку (разрез мира вдоль полёта).
+     * Это 2D-проекция на HUD, а не второй проход рендера мира: никаких FBO и конфликтов с шейдерами,
+     * цена в кадре низкая (выборка блоков кэшируется и обновляется ~4 раза в секунду).
+     */
+    private void drawPip(DrawContext ctx, MinecraftClient mc) {
+        World w = mc.world;
+        if (w == null || n < 2) return;
+        int size = (int) pipSize.value;
+        int sw = ctx.getScaledWindowWidth(), sh = ctx.getScaledWindowHeight();
+        int m = 8;
+        String cn = pipCorner.get();
+        int x0 = cn.endsWith("left") ? m : sw - size - m;
+        int y0 = cn.startsWith("Top") ? m + 14 : sh - size - m - 40;
+        boolean top = pipView.is("Top");
+        int rgb = color.rgb(System.currentTimeMillis(), 0f);
+        int hitRgb = hitType == 2 ? 0xFF5555 : rgb;
+
+        pipCols = size / PIP_CELL;
+        pipRows = size / PIP_CELL;
+        if (pipCol.length != pipCols * pipRows) { pipCol = new int[pipCols * pipRows]; pipKey = Long.MIN_VALUE; }
+
+        // параметры проекции
+        double ex = px[n - 1], ey = py[n - 1], ez = pz[n - 1];
+        double sx0 = px[0], sz0 = pz[0];
+        double dirx = ex - sx0, dirz = ez - sz0;
+        double hl = Math.sqrt(dirx * dirx + dirz * dirz);
+        if (hl < 0.5) { dirx = 1; dirz = 0; hl = 1; } else { dirx /= hl; dirz /= hl; }
+        double scale;           // пикселей на блок
+        double ymaxV = 0;
+        if (top) {
+            scale = size / (pipRadius.value * 2.0);
+        } else {
+            double ymin = Double.MAX_VALUE, ymax = -Double.MAX_VALUE;
+            for (int i = 0; i < n; i++) { ymin = Math.min(ymin, py[i]); ymax = Math.max(ymax, py[i]); }
+            ymin -= 3; ymax += 2;
+            double rangeY = Math.max(8.0, ymax - ymin);
+            scale = Math.min((size) / (hl + 6.0), size / rangeY);
+            ymaxV = ymax + (size / scale - rangeY) * 0.5;
+        }
+
+        long key = top ? (((long) Math.floor(ex) * 31L + (long) Math.floor(ez)) * 31L + (long) Math.floor(ey)) * 7L + size
+                : (((long) Math.floor(sx0) * 31L + (long) Math.floor(sz0)) * 31L + (long) Math.floor(ex) * 17L + (long) Math.floor(ez)) * 7L + size
+                        + (long) Math.floor(ymaxV) * 131L;
+        long now = System.currentTimeMillis();
+        if (key != pipKey || now - pipBuilt > 250L) {
+            pipKey = key;
+            pipBuilt = now;
+            for (int r = 0; r < pipRows; r++) {
+                for (int c = 0; c < pipCols; c++) {
+                    double px0 = (c + 0.5) * PIP_CELL, py0 = (r + 0.5) * PIP_CELL;
+                    int col = 0;
+                    if (top) {
+                        int bx = (int) Math.floor(ex + (px0 - size / 2.0) / scale);
+                        int bz = (int) Math.floor(ez + (py0 - size / 2.0) / scale);
+                        int by0 = (int) Math.floor(ey) + 6;
+                        for (int dy = 0; dy < 20; dy++) {
+                            pipPos.set(bx, by0 - dy, bz);
+                            BlockState st = w.getBlockState(pipPos);
+                            if (st.isAir()) continue;
+                            int mc0 = st.getMapColor(w, pipPos).color;
+                            if (mc0 == 0) continue;
+                            float shade = MathHelper.clamp(1f + (pipPos.getY() - (float) ey) * 0.04f, 0.55f, 1.25f);
+                            col = shadeRgb(mc0, shade);
+                            break;
+                        }
+                    } else {
+                        double u = -3.0 + px0 / scale;
+                        int bx = (int) Math.floor(sx0 + dirx * u);
+                        int bz = (int) Math.floor(sz0 + dirz * u);
+                        int by = (int) Math.floor(ymaxV - py0 / scale);
+                        pipPos.set(bx, by, bz);
+                        BlockState st = w.getBlockState(pipPos);
+                        if (!st.isAir()) col = st.getMapColor(w, pipPos).color;
+                    }
+                    pipCol[r * pipCols + c] = col == 0 ? 0 : (0xFF000000 | col);
+                }
+            }
+        }
+
+        // панель
+        ctx.fill(x0 - 2, y0 - 2, x0 + size + 2, y0 + size + 2, 0xE0101010);
+        int bg = top ? 0xFF1A1A1A : 0xFF6FA0D8;
+        ctx.fill(x0, y0, x0 + size, y0 + size, bg);
+        for (int r = 0; r < pipRows; r++) {
+            for (int c = 0; c < pipCols; c++) {
+                int col = pipCol[r * pipCols + c];
+                if (col != 0) ctx.fill(x0 + c * PIP_CELL, y0 + r * PIP_CELL, x0 + (c + 1) * PIP_CELL, y0 + (r + 1) * PIP_CELL, col);
+            }
+        }
+        // траектория
+        for (int i = 0; i < n; i++) {
+            double sxp, syp;
+            if (top) {
+                sxp = size / 2.0 + (px[i] - ex) * scale;
+                syp = size / 2.0 + (pz[i] - ez) * scale;
+            } else {
+                double u = (px[i] - sx0) * dirx + (pz[i] - sz0) * dirz;
+                sxp = (u + 3.0) * scale;
+                syp = (ymaxV - py[i]) * scale;
+            }
+            if (sxp < 1 || syp < 1 || sxp > size - 2 || syp > size - 2) continue;
+            int ix = x0 + (int) sxp, iy = y0 + (int) syp;
+            ctx.fill(ix - 1, iy - 1, ix + 1, iy + 1, 0xFF000000 | rgb);
+        }
+        // игрок и точка падения
+        double spx, spy, lpx, lpy;
+        if (top) {
+            spx = size / 2.0 + (sx0 - ex) * scale;
+            spy = size / 2.0 + (sz0 - ez) * scale;
+            lpx = size / 2.0;
+            lpy = size / 2.0;
+        } else {
+            spx = 3.0 * scale;
+            spy = (ymaxV - py[0]) * scale;
+            lpx = ((ex - sx0) * dirx + (ez - sz0) * dirz + 3.0) * scale;
+            lpy = (ymaxV - ey) * scale;
+        }
+        if (spx >= 2 && spy >= 2 && spx <= size - 3 && spy <= size - 3) {
+            int ix = x0 + (int) spx, iy = y0 + (int) spy;
+            ctx.fill(ix - 2, iy - 2, ix + 3, iy + 3, 0xFF000000);
+            ctx.fill(ix - 1, iy - 1, ix + 2, iy + 2, 0xFFFFFFFF);
+        }
+        if (hitType != 0) {
+            int ix = x0 + MathHelper.clamp((int) lpx, 4, size - 5), iy = y0 + MathHelper.clamp((int) lpy, 4, size - 5);
+            int hc = 0xFF000000 | hitRgb;
+            ctx.fill(ix - 5, iy - 1, ix + 6, iy + 2, 0xFF000000);
+            ctx.fill(ix - 1, iy - 5, ix + 2, iy + 6, 0xFF000000);
+            ctx.fill(ix - 4, iy, ix + 5, iy + 1, hc);
+            ctx.fill(ix, iy - 4, ix + 1, iy + 5, hc);
+        }
+        // подпись
+        String label = (pearl ? "Pearl" : kind != null ? kind.name() : "") + (top ? "  top" : "  side");
+        Hud.text(ctx, label, x0, y0 - 11, Ui.TEXT_DIM);
+        if (hitType != 0) {
+            String info = String.format(Locale.ROOT, "%.0f %.0f %.0f", hx, hy, hz);
+            Hud.text(ctx, info, x0 + size - Hud.w(info), y0 + size + 4, Ui.TEXT);
+        }
+    }
+
+    private static int shadeRgb(int rgb, float k) {
+        int r = MathHelper.clamp(Math.round(((rgb >> 16) & 255) * k), 0, 255);
+        int g = MathHelper.clamp(Math.round(((rgb >> 8) & 255) * k), 0, 255);
+        int b = MathHelper.clamp(Math.round((rgb & 255) * k), 0, 255);
+        return (r << 16) | (g << 8) | b;
     }
 }

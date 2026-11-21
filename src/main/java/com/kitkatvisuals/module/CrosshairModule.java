@@ -1,5 +1,7 @@
 package com.kitkatvisuals.module;
 
+import com.kitkatvisuals.config.CrosshairPresets;
+import com.kitkatvisuals.gui.CrosshairEditorScreen;
 import com.kitkatvisuals.gui.Ui;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -20,12 +22,34 @@ public final class CrosshairModule extends Module {
     private static final int[] RGB = {0xFFFFFF, 0xFF4D4D, 0x5CFF7A, 0x4DA3FF, 0xFFE04D, 0x4DF0FF, 0xFF7AD9, 0xFFA14D};
     private static final int TARGET_RGB = 0xFF3B3B;
 
-    private final Setting.Num style = add(new Setting.Num("style", "Style (1-10)", 1f, 1f, STYLES, 1f));
-    private final Setting.Mode color = add(new Setting.Mode("color", "Color", COLORS));
-    private final Setting.Num size = add(new Setting.Num("size", "Size", 5f, 2f, 16f, 1f));
-    private final Setting.Num gap = add(new Setting.Num("gap", "Gap", 3f, 0f, 10f, 1f));
-    private final Setting.Num thickness = add(new Setting.Num("thickness", "Thickness", 1f, 1f, 4f, 1f));
-    private final Setting.Bool outline = add(new Setting.Bool("outline", "Outline", true));
+    public static final int GRID = 15;
+    private static final String DEFAULT_GRID = defaultGrid();
+
+    public final Setting.Mode mode = add(new Setting.Mode("mode", "Mode", "Preset", "Custom"));
+    public final Setting.Bool openEditor = add(new Setting.Bool("editor", "Open editor", false));
+    private final Setting.Num style = add(new Setting.Num("style", "Style (1-10)", 1f, 1f, STYLES, 1f)
+            .<Setting.Num>visibleWhen(() -> !this.custom()));
+    private final Setting.Mode color = add(new Setting.Mode("color", "Color", COLORS)
+            .<Setting.Mode>visibleWhen(() -> !this.custom()));
+    private final Setting.Num size = add(new Setting.Num("size", "Size", 5f, 2f, 16f, 1f)
+            .<Setting.Num>visibleWhen(() -> !this.custom()));
+    private final Setting.Num gap = add(new Setting.Num("gap", "Gap", 3f, 0f, 10f, 1f)
+            .<Setting.Num>visibleWhen(() -> !this.custom()));
+    private final Setting.Num thickness = add(new Setting.Num("thickness", "Thickness", 1f, 1f, 4f, 1f)
+            .<Setting.Num>visibleWhen(() -> !this.custom()));
+    /** Параметры пользовательского прицела (редактируются в редакторе). */
+    public final Setting.Num pixelSize = add(new Setting.Num("pixel_size", "Pixel size", 2f, 1f, 6f, 1f)
+            .<Setting.Num>visibleWhen(() -> this.custom()));
+    public final Setting.Num pixelGap = add(new Setting.Num("pixel_gap", "Pixel gap", 0f, 0f, 12f, 1f)
+            .<Setting.Num>visibleWhen(() -> this.custom()));
+    public final Setting.Num colR = add(new Setting.Num("col_r", "Red", 255f, 0f, 255f, 1f)
+            .<Setting.Num>visibleWhen(() -> this.custom()));
+    public final Setting.Num colG = add(new Setting.Num("col_g", "Green", 255f, 0f, 255f, 1f)
+            .<Setting.Num>visibleWhen(() -> this.custom()));
+    public final Setting.Num colB = add(new Setting.Num("col_b", "Blue", 255f, 0f, 255f, 1f)
+            .<Setting.Num>visibleWhen(() -> this.custom()));
+    private final Setting.Str gridStr = add(new Setting.Str("grid", "Custom grid", DEFAULT_GRID));
+    public final Setting.Bool outline = add(new Setting.Bool("outline", "Outline", true));
     private final Setting.Bool dynamic = add(new Setting.Bool("dynamic", "Dynamic gap", true));
     private final Setting.Bool onTarget = add(new Setting.Bool("on_target", "Red on target", true));
     private final Setting.Bool indicator = add(new Setting.Bool("indicator", "Attack indicator", true));
@@ -38,6 +62,142 @@ public final class CrosshairModule extends Module {
 
     public CrosshairModule() {
         super("crosshair", "Crosshair", "hud");
+    }
+
+    private static String defaultGrid() {
+        StringBuilder sb = new StringBuilder();
+        for (int y = 0; y < GRID; y++) {
+            for (int x = 0; x < GRID; x++) {
+                int dx = Math.abs(x - GRID / 2), dy = Math.abs(y - GRID / 2);
+                sb.append((dx == 0 && dy >= 2 && dy <= 5) || (dy == 0 && dx >= 2 && dx <= 5) ? '1' : '0');
+            }
+        }
+        return sb.toString();
+    }
+
+    public boolean custom() { return mode.is("Custom"); }
+
+    // ---------------- пользовательская сетка ----------------
+
+    private String cacheSrc;
+    private final boolean[] cells = new boolean[GRID * GRID];
+
+    /** Клетки сетки 15x15 (индекс = y * 15 + x). Для редактора: меняйте и вызывайте commitGrid(). */
+    public boolean[] cells() {
+        if (!gridStr.value.equals(cacheSrc)) {
+            cacheSrc = gridStr.value;
+            for (int i = 0; i < cells.length; i++) cells[i] = i < cacheSrc.length() && cacheSrc.charAt(i) == '1';
+        }
+        return cells;
+    }
+
+    public void commitGrid() {
+        StringBuilder sb = new StringBuilder(GRID * GRID);
+        for (boolean c : cells) sb.append(c ? '1' : '0');
+        gridStr.value = sb.toString();
+        cacheSrc = gridStr.value;
+        ModuleManager.save();
+    }
+
+    public int customRgb() { return ((int) colR.value << 16) | ((int) colG.value << 8) | (int) colB.value; }
+
+    /** Копирует форму текущего встроенного прицела в сетку (обрезается по 15x15). */
+    public void importPreset() {
+        boolean[] c = cells();
+        java.util.Arrays.fill(c, false);
+        t = (int) thickness.value;
+        build(GRID / 2, GRID / 2, (int) size.value, (int) gap.value);
+        for (int i = 0; i < rn; i++) {
+            for (int x = rx[i]; x < rx[i] + rw[i]; x++) {
+                for (int y = ry[i]; y < ry[i] + rh[i]; y++) {
+                    if (x >= 0 && x < GRID && y >= 0 && y < GRID) c[y * GRID + x] = true;
+                }
+            }
+        }
+        commitGrid();
+    }
+
+    public CrosshairPresets.Data toPreset() {
+        CrosshairPresets.Data d = new CrosshairPresets.Data();
+        boolean[] c = cells();
+        for (int y = 0; y < GRID; y++) {
+            StringBuilder sb = new StringBuilder(GRID);
+            for (int x = 0; x < GRID; x++) sb.append(c[y * GRID + x] ? '1' : '0');
+            d.grid.add(sb.toString());
+        }
+        d.pixelSize = (int) pixelSize.value;
+        d.gap = (int) pixelGap.value;
+        d.color = String.format("#%06X", customRgb());
+        d.outline = outline.value;
+        return d;
+    }
+
+    /** Применяет пресет; поля вне допустимого диапазона обрезаются. Всегда безопасно для повреждённого JSON. */
+    public void applyPreset(CrosshairPresets.Data d) {
+        boolean[] c = cells();
+        for (int y = 0; y < GRID; y++) {
+            String row = d.grid != null && y < d.grid.size() && d.grid.get(y) != null ? d.grid.get(y) : "";
+            for (int x = 0; x < GRID; x++) c[y * GRID + x] = x < row.length() && row.charAt(x) == '1';
+        }
+        pixelSize.set(d.pixelSize);
+        pixelGap.set(d.gap);
+        try {
+            String hex = d.color == null ? "FFFFFF" : d.color.replace("#", "");
+            int rgb = Integer.parseInt(hex, 16) & 0xFFFFFF;
+            colR.set((rgb >> 16) & 255);
+            colG.set((rgb >> 8) & 255);
+            colB.set(rgb & 255);
+        } catch (NumberFormatException ignored) {
+            // цвет остаётся прежним
+        }
+        outline.value = d.outline;
+        commitGrid();
+    }
+
+    /** Рисует пользовательский прицел с центром в (cx, cy). Используется в игре и в окне предпросмотра. */
+    public void drawCustom(DrawContext ctx, int cx, int cy, int extraGap, int argb) {
+        boolean[] c = cells();
+        int s = (int) pixelSize.value;
+        int g = (int) pixelGap.value + extraGap;
+        int mid = GRID / 2;
+        for (int pass = outline.value ? 0 : 1; pass < 2; pass++) {
+            int pad = pass == 0 ? 1 : 0;
+            int col = pass == 0 ? 0xB0000000 : argb;
+            for (int j = 0; j < GRID; j++) {
+                int y = cy - s / 2 + (j - mid) * s + Integer.signum(j - mid) * g;
+                int runStart = 0, runEnd = Integer.MIN_VALUE;
+                boolean run = false;
+                for (int i = 0; i < GRID; i++) {
+                    if (!c[j * GRID + i]) continue;
+                    int x = cx - s / 2 + (i - mid) * s + Integer.signum(i - mid) * g;
+                    if (run && x == runEnd) {
+                        runEnd = x + s;
+                    } else {
+                        if (run) ctx.fill(runStart - pad, y - pad, runEnd + pad, y + s + pad, col);
+                        runStart = x;
+                        runEnd = x + s;
+                        run = true;
+                    }
+                }
+                if (run) ctx.fill(runStart - pad, y - pad, runEnd + pad, y + s + pad, col);
+            }
+        }
+    }
+
+    public void openEditor() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (!isEnabled()) setEnabled(true);
+        mode.index = 1;
+        if (mc.currentScreen instanceof CrosshairEditorScreen) return;
+        mc.setScreen(new CrosshairEditorScreen(mc.currentScreen, this));
+    }
+
+    @Override
+    public void tick(MinecraftClient mc) {
+        if (openEditor.value) {
+            openEditor.value = false;
+            openEditor();
+        }
     }
 
     public int styleIndex() { return (int) style.value; }
@@ -176,10 +336,19 @@ public final class CrosshairModule extends Module {
         t = (int) thickness.value;
         int cx = ctx.getScaledWindowWidth() / 2;
         int cy = ctx.getScaledWindowHeight() / 2;
-        build(cx, cy, (int) size.value, (int) gap.value + Math.round(dyn));
+        boolean cu = custom();
+        if (!cu) build(cx, cy, (int) size.value, (int) gap.value + Math.round(dyn));
 
-        int col = 0xFF000000 | currentRgb(mc);
-        if (outline.value) {
+        int col;
+        if (cu) {
+            boolean red = onTarget.value && mc.targetedEntity instanceof LivingEntity le && le.isAlive();
+            col = 0xFF000000 | (red ? TARGET_RGB : customRgb());
+            drawCustom(ctx, cx, cy, Math.round(dyn), col);
+            rn = 0;
+        } else {
+            col = 0xFF000000 | currentRgb(mc);
+        }
+        if (outline.value && !cu) {
             for (int i = 0; i < rn; i++) {
                 ctx.fill(rx[i] - 1, ry[i] - 1, rx[i] + rw[i] + 1, ry[i] + rh[i] + 1, 0xB0000000);
             }
@@ -193,7 +362,8 @@ public final class CrosshairModule extends Module {
             if (prog < 1f) {
                 int w = 17;
                 int bx = cx - w / 2;
-                int by = cy + (int) size.value + (int) gap.value + 8;
+                int by = cu ? cy + (GRID / 2 + 1) * (int) pixelSize.value + (int) pixelGap.value + 6
+                        : cy + (int) size.value + (int) gap.value + 8;
                 ctx.fill(bx - 1, by - 1, bx + w + 1, by + 3, 0xB0000000);
                 ctx.fill(bx, by, bx + Math.round(w * prog), by + 2, col);
             }

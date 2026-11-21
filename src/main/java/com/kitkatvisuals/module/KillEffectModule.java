@@ -12,6 +12,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
@@ -95,18 +96,28 @@ public final class KillEffectModule extends Module {
         long t0;
     }
 
+    private final Setting.Mode effect = add(new Setting.Mode("effect", "Effect", "Gore", "Freeze", "Burn", "Telekinesis"));
+    private final Setting.Num fxSpeed = add(new Setting.Num("fx_speed", "Effect speed", 1f, 0.5f, 2f, 0.1f)
+            .<Setting.Num>visibleWhen(() -> !this.effect.is("Gore")));
+    private final Setting.Bool playersOnly = add(new Setting.Bool("players_only", "Players only", false));
     private final Setting.Mode scope = add(new Setting.Mode("scope", "Kills", "Mine", "Nearby"));
     private final Setting.Num range = add(new Setting.Num("range", "Max distance", 24f, 8f, 64f, 4f));
-    private final Setting.Bool dismember = add(new Setting.Bool("dismember", "Dismember", true));
-    private final Setting.Bool hideBody = add(new Setting.Bool("hide_body", "Hide vanilla corpse", true));
-    private final Setting.Num bloodAmount = add(new Setting.Num("blood", "Blood amount", 1f, 0.3f, 2f, 0.1f));
-    private final Setting.Bool puddlesOn = add(new Setting.Bool("puddles", "Blood puddles", true));
-    private final Setting.Bool screenBlood = add(new Setting.Bool("screen_blood", "Blood on screen", true));
+    private final Setting.Bool dismember = add(new Setting.Bool("dismember", "Dismember", true)
+            .<Setting.Bool>visibleWhen(() -> this.effect.is("Gore")));
+    private final Setting.Bool hideBody = add(new Setting.Bool("hide_body", "Hide vanilla corpse", true)
+            .<Setting.Bool>visibleWhen(() -> this.effect.is("Gore")));
+    private final Setting.Num bloodAmount = add(new Setting.Num("blood", "Blood amount", 1f, 0.3f, 2f, 0.1f)
+            .<Setting.Num>visibleWhen(() -> this.effect.is("Gore")));
+    private final Setting.Bool puddlesOn = add(new Setting.Bool("puddles", "Blood puddles", true)
+            .<Setting.Bool>visibleWhen(() -> this.effect.is("Gore")));
+    private final Setting.Bool screenBlood = add(new Setting.Bool("screen_blood", "Blood on screen", true)
+            .<Setting.Bool>visibleWhen(() -> this.effect.is("Gore")));
     private final Setting.Num screenRange = add(new Setting.Num("screen_range", "Screen blood distance", 6f, 2f, 16f, 1f)
-            .<Setting.Num>visibleWhen(() -> this.screenBlood.value));
-    private final Setting.Num partsLife = add(new Setting.Num("parts_life", "Parts lifetime (s)", 10f, 3f, 30f, 1f));
+            .<Setting.Num>visibleWhen(() -> this.effect.is("Gore") && this.screenBlood.value));
+    private final Setting.Num partsLife = add(new Setting.Num("parts_life", "Parts lifetime (s)", 10f, 3f, 30f, 1f)
+            .<Setting.Num>visibleWhen(() -> this.effect.is("Gore")));
     private final Setting.Num puddleLife = add(new Setting.Num("puddle_life", "Puddle lifetime (s)", 25f, 5f, 90f, 5f)
-            .<Setting.Num>visibleWhen(() -> this.puddlesOn.value));
+            .<Setting.Num>visibleWhen(() -> this.effect.is("Gore") && this.puddlesOn.value));
 
     private final Random rnd = new Random();
     private final List<Part> parts = new ArrayList<>();
@@ -117,6 +128,7 @@ public final class KillEffectModule extends Module {
     private final Map<Integer, Long> hidden = new HashMap<>();
     private final List<ScreenDrop> screenDrops = new ArrayList<>();
     private final List<Splat> splats = new ArrayList<>();
+    private final KillFx fx = new KillFx();
     private long lastHud;
 
     private static final Matrix3f M3 = new Matrix3f();
@@ -144,6 +156,7 @@ public final class KillEffectModule extends Module {
         lastHit.clear();
         screenDrops.clear();
         splats.clear();
+        fx.clear();
     }
 
     public boolean isHidden(Entity e) {
@@ -151,7 +164,7 @@ public final class KillEffectModule extends Module {
     }
 
     @Override
-    public boolean wantsWorldRender() { return !parts.isEmpty() || !drops.isEmpty() || !puddles.isEmpty(); }
+    public boolean wantsWorldRender() { return !parts.isEmpty() || !drops.isEmpty() || !puddles.isEmpty() || fx.active(); }
 
     // ---------------- события ----------------
 
@@ -166,8 +179,28 @@ public final class KillEffectModule extends Module {
             Long t = lastHit.get(le.getId());
             if (t == null || now - t > 4500L) return;
         }
+        if (playersOnly.value && !(le instanceof PlayerEntity)) return;
+        if (!effect.is("Gore")) {
+            spawnFx(le, mc, now);
+            return;
+        }
         spawn(le, mc, now);
     }
+
+    /** Freeze / Burn / Telekinesis: ваниль скрывается на время эффекта, тело заменяют процедурные кубы. */
+    private void spawnFx(LivingEntity le, MinecraftClient mc, long now) {
+        int type = effect.is("Freeze") ? KillFx.FREEZE : (effect.is("Burn") ? KillFx.BURN : KillFx.TELE);
+        String id = Registries.ENTITY_TYPE.getId(le.getType()).getPath();
+        double kx = le.getX() - mc.player.getX(), kz = le.getZ() - mc.player.getZ();
+        double kl = Math.sqrt(kx * kx + kz * kz);
+        if (kl < 1e-3) { kx = 0; kz = 1; kl = 1; }
+        int light = mc.world.getLightLevel(le.getBlockPos().up());
+        fx.spawn(type, id, le.getX(), le.getY(), le.getZ(), (float) Math.toRadians(le.getBodyYaw()),
+                le.getWidth(), le.getHeight(), kx / kl, kz / kl, light, fxSpeed.value);
+        hidden.put(le.getId(), now + KillFx.duration(type, fxSpeed.value) * 50L + 400L);
+    }
+
+    static boolean humanoid(String id) { return HUMANOIDS.contains(id); }
 
     private int dropCap() { return Perf.quality() == 0 ? 320 : (Perf.quality() == 1 ? 160 : 70); }
 
@@ -372,6 +405,7 @@ public final class KillEffectModule extends Module {
             tickPart(w, p);
             if (p.age > p.maxAge) parts.remove(i);
         }
+        fx.tick(w);
         for (int i = spurts.size() - 1; i >= 0; i--) {
             Spurt s = spurts.get(i);
             float k = s.ticks / 28f;
@@ -547,6 +581,8 @@ public final class KillEffectModule extends Module {
             t.flush();
             Batch.end();
         }
+
+        if (fx.active()) fx.render(c);
     }
 
     private static final int[][] FACE_V = {{1, 3, 7, 5}, {0, 2, 6, 4}, {2, 3, 7, 6}, {0, 1, 5, 4}, {4, 5, 7, 6}, {0, 1, 3, 2}};
@@ -642,7 +678,7 @@ public final class KillEffectModule extends Module {
     // ---------------- палитра ----------------
 
     /** {голова, торс/тело, ноги, руки}. */
-    private static int[] palette(String id) {
+    static int[] palette(String id) {
         return switch (id) {
             case "player" -> new int[]{0xC8A07E, 0x2AA5A5, 0x3C3C98, 0xC8A07E};
             case "zombie", "husk", "drowned", "zombie_villager" -> new int[]{0x5B8F4A, 0x2D7A7A, 0x3A3A8C, 0x5B8F4A};

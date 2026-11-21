@@ -239,6 +239,8 @@ public class ClickGuiScreen extends Screen {
 
     /** Секретный код: введённый целиком в поиске, открывает скрытые функции. */
     private static final String SECRET_CODE = "promocode admin";
+    /** Обратный код: введённый целиком в поиске, снова прячет скрытые функции (и выключает их). */
+    private static final String LOCK_CODE = "promocode hide";
 
     /** Скрытый модуль виден только после ввода секретного кода. */
     private static boolean visible(Module m) {
@@ -264,6 +266,25 @@ public class ClickGuiScreen extends Screen {
                     break;
                 }
             }
+        }
+    }
+
+    private void lockSecret() {
+        for (Module m : ModuleManager.MODULES) {
+            if (m.secret() && m.isEnabled()) m.setEnabled(false); // скрытые модули гасим, чтобы не работали невидимыми
+        }
+        com.kitkatvisuals.config.ConfigManager.get().adminUnlocked = false;
+        com.kitkatvisuals.config.ConfigManager.save();
+        ModuleManager.save();
+        fillTabs();
+        if (searchField != null) searchField.setText("");
+        query = "";
+        scroll = 0f;
+        scrollTarget = 0f;
+        layoutDirty = true;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.inGameHud != null) {
+            mc.inGameHud.getChatHud().addMessage(Text.literal("[KitKatVisuals] Скрытые функции спрятаны."));
         }
     }
 
@@ -489,6 +510,10 @@ public class ClickGuiScreen extends Screen {
     private void setQuery(String q) {
         if (q.trim().equalsIgnoreCase(SECRET_CODE) && !ModuleManager.adminUnlocked()) {
             unlockSecret();
+            return;
+        }
+        if (q.trim().equalsIgnoreCase(LOCK_CODE) && ModuleManager.adminUnlocked()) {
+            lockSecret();
             return;
         }
         if (q.equals(query)) return;

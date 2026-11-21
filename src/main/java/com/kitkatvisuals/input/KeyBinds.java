@@ -43,7 +43,7 @@ public final class KeyBinds {
         OPEN = reg("open", GLFW.GLFW_KEY_RIGHT_SHIFT);
         TOGGLE = reg("toggle", GLFW.GLFW_KEY_UNKNOWN);       // по умолчанию не назначена, чтобы не конфликтовать
         NEXT_PRESET = reg("next_preset", GLFW.GLFW_KEY_UNKNOWN);
-        LOCK = reg("lock_slot", GLFW.GLFW_KEY_L);
+        LOCK = reg("lock_slot", GLFW.GLFW_KEY_Y); // L занята ванилью (достижения); при конфликте с модами ключ подбирается автоматически
         CROSSHAIR_STYLE = reg("crosshair_style", GLFW.GLFW_KEY_UNKNOWN); // назначается игроком в «Управлении»
         CROSSHAIR_COLOR = reg("crosshair_color", GLFW.GLFW_KEY_UNKNOWN);
         FRIEND = reg("friend", GLFW.GLFW_KEY_UNKNOWN);
@@ -63,6 +63,56 @@ public final class KeyBinds {
         MINIMAP_UNMARK = reg("minimap_unmark", GLFW.GLFW_KEY_UNKNOWN);
         FREE_LOOK = reg("free_look", GLFW.GLFW_KEY_UNKNOWN);  // обычная клавиша управления: работает и на Android (Pojav)
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
+        ClientTickEvents.START_CLIENT_TICK.register(KeyBinds::lockSlotGuards);
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED.register(KeyBinds::ensureFreeLockKey);
+    }
+
+    /** Кандидаты для «Lock slot»: ни одна из них не занята ванилью 1.21.4. Первая свободная берётся после загрузки всех модов. */
+    private static final int[] LOCK_CANDIDATES = {
+            GLFW.GLFW_KEY_Y, GLFW.GLFW_KEY_H, GLFW.GLFW_KEY_N, GLFW.GLFW_KEY_U, GLFW.GLFW_KEY_O,
+            GLFW.GLFW_KEY_APOSTROPHE, GLFW.GLFW_KEY_SEMICOLON, GLFW.GLFW_KEY_GRAVE_ACCENT, GLFW.GLFW_KEY_KP_0
+    };
+
+    /**
+     * Проверка конфликтов в коде: после CLIENT_STARTED в options.allKeys есть бинды ванили и всех модов.
+     * Если бинд Lock slot стоит на значении по умолчанию (или на старом L) и совпадает с чужим, переносим на первую свободную клавишу.
+     * Ручную привязку игрока не трогаем.
+     */
+    private static void ensureFreeLockKey(MinecraftClient mc) {
+        try {
+            if (mc.options == null || LOCK == null) return;
+            boolean oldDefaultL = LOCK.getBoundKeyTranslationKey().equals("key.keyboard.l");
+            if (!LOCK.isDefault() && !oldDefaultL) return;
+            if (!conflicts(mc, LOCK.getBoundKeyTranslationKey())) return;
+            for (int code : LOCK_CANDIDATES) {
+                InputUtil.Key k = InputUtil.Type.KEYSYM.createFromCode(code);
+                if (conflicts(mc, k.getTranslationKey())) continue;
+                LOCK.setBoundKey(k);
+                KeyBinding.updateKeysByCode();
+                mc.options.write();
+                com.kitkatvisuals.KitKatVisualsClient.LOGGER.info("Lock slot: клавиша перенесена на {}", k.getTranslationKey());
+                return;
+            }
+        } catch (RuntimeException e) {
+            com.kitkatvisuals.KitKatVisualsClient.LOGGER.warn("Lock slot: не удалось проверить клавишу: {}", e.toString());
+        }
+    }
+
+    private static boolean conflicts(MinecraftClient mc, String keyTranslation) {
+        for (KeyBinding b : mc.options.allKeys) {
+            if (b == LOCK || b.isUnbound()) continue;
+            if (b.getBoundKeyTranslationKey().equals(keyTranslation)) return true;
+        }
+        return false;
+    }
+
+    /** До ванильной обработки ввода: гасим F (смена рук), если затронут заблокированный слот. Работает без миксинов. */
+    private static void lockSlotGuards(MinecraftClient mc) {
+        com.kitkatvisuals.module.LockSlotModule m = com.kitkatvisuals.module.ModuleManager.lockSlot;
+        if (m == null || mc.player == null || mc.currentScreen != null) return;
+        if (m.blocksSwapHands(mc.player)) {
+            while (mc.options.swapHandsKey.wasPressed()) { /* съедаем нажатия */ }
+        }
     }
 
     private static KeyBinding reg(String id, int key) {
@@ -73,6 +123,10 @@ public final class KeyBinds {
     private static void tick(MinecraftClient mc) {
         while (OPEN.wasPressed()) {
             if (mc.currentScreen == null) mc.setScreen(com.kitkatvisuals.gui.ClickGuiScreen.create(null));
+        }
+        while (LOCK.wasPressed()) {
+            com.kitkatvisuals.module.LockSlotModule ls = com.kitkatvisuals.module.ModuleManager.lockSlot;
+            if (ls != null && ls.isEnabled() && mc.currentScreen == null && mc.player != null) ls.toggleSelected(mc);
         }
         crosshairKeys(mc);
         freeLookKey(mc);
