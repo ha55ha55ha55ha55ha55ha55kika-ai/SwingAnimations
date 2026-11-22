@@ -3,6 +3,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,10 +19,19 @@ jobs:
         with:
           gradle-version: 8.12
       - name: Build
-        run: gradle build --no-daemon
+        run: gradle build --no-daemon -Pmod_version=1.0.${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: kitkatvisuals-jar
           path: |
             build/libs/*.jar
             !build/libs/*-sources.jar
+      - name: Release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=1.0.${{ github.run_number }}
+          JAR=build/libs/kitkatvisuals-$VER.jar
+          SHA=$(sha256sum "$JAR" | cut -d' ' -f1)
+          gh release create "v$VER" "$JAR" --title "KitKatVisuals $VER" --notes "sha256:$SHA" --latest

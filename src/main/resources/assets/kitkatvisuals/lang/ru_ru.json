@@ -890,5 +890,14 @@
   "kitkatvisuals.setting.no_fog.overworld": "Обычный мир",
   "kitkatvisuals.setting.no_fog.nether": "Незер (ад)",
   "kitkatvisuals.setting.no_fog.end": "Энд",
-  "kitkatvisuals.tut.mod.no_fog": "Убирает ванильный туман на расстоянии в обычном мире, Незере и Энде. Вода, лава, слепота и тьма не затрагиваются."
+  "kitkatvisuals.tut.mod.no_fog": "Убирает ванильный туман на расстоянии в обычном мире, Незере и Энде. Вода, лава, слепота и тьма не затрагиваются.",
+  "kitkatvisuals.update.ready": "[KitKat] Обновление %s скачано и установится при выходе из игры. Отключить автообновление: /kkupdate off",
+  "kitkatvisuals.update.checking": "[KitKat] Проверяю обновления...",
+  "kitkatvisuals.update.latest": "[KitKat] У вас последняя версия (%s).",
+  "kitkatvisuals.update.no_release": "[KitKat] Релизы на GitHub не найдены.",
+  "kitkatvisuals.update.failed": "[KitKat] Не удалось обновиться, подробности в логе.",
+  "kitkatvisuals.update.dev": "[KitKat] Обновления работают только в собранном jar.",
+  "kitkatvisuals.update.busy": "[KitKat] Проверка уже идёт.",
+  "kitkatvisuals.update.on": "[KitKat] Автообновление включено.",
+  "kitkatvisuals.update.off": "[KitKat] Автообновление выключено."
 }

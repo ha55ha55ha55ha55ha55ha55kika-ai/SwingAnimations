@@ -694,5 +694,14 @@
   "kitkatvisuals.setting.no_fog.overworld": "Overworld",
   "kitkatvisuals.setting.no_fog.nether": "Nether",
   "kitkatvisuals.setting.no_fog.end": "The End",
-  "kitkatvisuals.tut.mod.no_fog": "Removes vanilla distance fog in the Overworld, Nether and End. Water, lava, blindness and darkness are not affected."
+  "kitkatvisuals.tut.mod.no_fog": "Removes vanilla distance fog in the Overworld, Nether and End. Water, lava, blindness and darkness are not affected.",
+  "kitkatvisuals.update.ready": "[KitKat] Update %s downloaded. It will be installed when you close the game. Turn off auto-update: /kkupdate off",
+  "kitkatvisuals.update.checking": "[KitKat] Checking for updates...",
+  "kitkatvisuals.update.latest": "[KitKat] You have the latest version (%s).",
+  "kitkatvisuals.update.no_release": "[KitKat] No releases found on GitHub.",
+  "kitkatvisuals.update.failed": "[KitKat] Update failed, details are in the log.",
+  "kitkatvisuals.update.dev": "[KitKat] Updates only work in the built jar.",
+  "kitkatvisuals.update.busy": "[KitKat] A check is already running.",
+  "kitkatvisuals.update.on": "[KitKat] Auto-update enabled.",
+  "kitkatvisuals.update.off": "[KitKat] Auto-update disabled."
 }
