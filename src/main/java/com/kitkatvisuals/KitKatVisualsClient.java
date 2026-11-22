@@ -23,6 +23,7 @@ public final class KitKatVisualsClient implements ClientModInitializer {
         ConfigManager.load();
         com.kitkatvisuals.module.ModuleManager.init();
         KeyBinds.register();
+        com.kitkatvisuals.link.FriendLink.init();
         com.kitkatvisuals.util.MenuGuard.checkAtStartup(); // если прошлый запуск завис на кастомном меню, оно отключается
         com.kitkatvisuals.gui.MenuSwitch.init();
         com.kitkatvisuals.gui.Tutorial.init();

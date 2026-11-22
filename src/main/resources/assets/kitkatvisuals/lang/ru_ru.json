@@ -876,5 +876,14 @@
   "kitkatvisuals.fun.deposit_items": "ДЕПНУТЬ ПРЕДМЕТЫ",
   "kitkatvisuals.fun.dropping": "Выкидываю: %s (стоп)",
   "kitkatvisuals.fun.deposit_money": "ДЕПНУТЬ ДЕНЬГИ",
-  "kitkatvisuals.fun.money_confirm": "Точно? /%s"
+  "kitkatvisuals.fun.money_confirm": "Точно? /%s",
+  "key.kitkatvisuals.friend_mark": "Метки друзей: поставить метку",
+  "key.kitkatvisuals.friend_unmark": "Метки друзей: убрать мои метки",
+  "key.kitkatvisuals.friend_accept": "Запрос в друзья: принять",
+  "key.kitkatvisuals.friend_deny": "Запрос в друзья: отклонить",
+  "kitkatvisuals.module.friend_marks": "Метки друзей",
+  "kitkatvisuals.setting.friend_marks.share_coords": "Делиться координатами (/pronoob)",
+  "kitkatvisuals.setting.friend_marks.show_names": "Ник и подпись",
+  "kitkatvisuals.setting.friend_marks.show_distance": "Расстояние",
+  "kitkatvisuals.setting.friend_marks.minimap": "Показывать на мини-карте"
 }

@@ -680,5 +680,14 @@
   "kitkatvisuals.fun.deposit_items": "DEPOSIT ITEMS",
   "kitkatvisuals.fun.dropping": "Dropping: %s (stop)",
   "kitkatvisuals.fun.deposit_money": "DEPOSIT MONEY",
-  "kitkatvisuals.fun.money_confirm": "Sure? /%s"
+  "kitkatvisuals.fun.money_confirm": "Sure? /%s",
+  "key.kitkatvisuals.friend_mark": "Friend marks: place a mark",
+  "key.kitkatvisuals.friend_unmark": "Friend marks: remove my marks",
+  "key.kitkatvisuals.friend_accept": "Friend request: accept",
+  "key.kitkatvisuals.friend_deny": "Friend request: deny",
+  "kitkatvisuals.module.friend_marks": "Friend marks",
+  "kitkatvisuals.setting.friend_marks.share_coords": "Share my coordinates (/pronoob)",
+  "kitkatvisuals.setting.friend_marks.show_names": "Name and label",
+  "kitkatvisuals.setting.friend_marks.show_distance": "Distance",
+  "kitkatvisuals.setting.friend_marks.minimap": "Show on minimap"
 }
