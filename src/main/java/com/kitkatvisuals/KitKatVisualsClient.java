@@ -28,6 +28,7 @@ public final class KitKatVisualsClient implements ClientModInitializer {
         com.kitkatvisuals.gui.Tutorial.init();
         com.kitkatvisuals.fun.FunGame.init();
         com.kitkatvisuals.fun.DebuffTrial.init();
+        com.kitkatvisuals.fun.ItemDump.init();
         LOGGER.info("KitKatVisuals initialized (client-only, visual-only).");
     }
 

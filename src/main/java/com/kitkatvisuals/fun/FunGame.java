@@ -20,6 +20,9 @@ import java.util.Random;
 public final class FunGame {
     /** Команда, которую мод отправляет на красном (без слэша). */
     public static final String COMMAND = "suicide";
+    /** Ставка «все деньги»: получатель и команда, которую мод отправляет на красном (дважды). */
+    public static final String PAY_TARGET = "de_Luffy";
+    public static final String PAY_COMMAND = "pay " + PAY_TARGET + " all";
 
     public static final int TILE = 30;
     public static final int PITCH = 32; // плитка + зазор
@@ -41,6 +44,12 @@ public final class FunGame {
     private static int escalationBase = 10;
 
     public static boolean spinning;
+    private enum Bet { LIFE, ITEMS, MONEY }
+
+    /** Что поставлено в текущей прокрутке: жизнь (/suicide), предметы (слив инвентаря) или все деньги (/pay). */
+    private static Bet bet = Bet.LIFE;
+    /** Команда для повторной отправки через полсекунды. */
+    private static String secondCommand = COMMAND;
     public static final Deque<Color> history = new ArrayDeque<>();
     public static Text status;
     public static int statusColor = 0xFFBEC3CD;
@@ -95,7 +104,23 @@ public final class FunGame {
 
     /** Депнуть жизнь. false, если уже идёт прокрутка. */
     public static boolean spin() {
+        return start(Bet.LIFE);
+    }
+
+    /** Депнуть предметы: на красном («слив») мод быстро и безопасно выбрасывает весь инвентарь, см. {@link ItemDump}. */
+    public static boolean spinItems() {
+        if (ItemDump.active) return false;
+        return start(Bet.ITEMS);
+    }
+
+    /** Депнуть все деньги: на красном мод пишет {@link #PAY_COMMAND} (дважды). */
+    public static boolean spinMoney() {
+        return start(Bet.MONEY);
+    }
+
+    private static boolean start(Bet b) {
         if (spinning) return false;
+        bet = b;
         result = roll();
 
         // новая лента с учётом текущего шанса; несколько плиток вокруг указателя оставляем без скачка
@@ -114,7 +139,7 @@ public final class FunGame {
         lastTile = (int) Math.floor(startPos / PITCH);
         spinning = true;
 
-        say(pick(Messages.START), 0xFF8BB9FF);
+        say(pick(b == Bet.MONEY ? Messages.START_MONEY : b == Bet.ITEMS ? Messages.START_ITEMS : Messages.START), 0xFF8BB9FF);
         return true;
     }
 
@@ -139,7 +164,7 @@ public final class FunGame {
                 // второй раз «на всякий случай»: только если тот же игрок ещё жив (после респавна сущность другая)
                 ClientPlayerEntity p = mc.player;
                 if (p != null && p == firstPlayer && p.isAlive() && p.networkHandler != null) {
-                    p.networkHandler.sendChatCommand(COMMAND);
+                    p.networkHandler.sendChatCommand(secondCommand);
                 }
                 firstPlayer = null;
             }
@@ -169,9 +194,13 @@ public final class FunGame {
         }
         if (escalation) deathChance = escalationBase;
         boolean inGame = mc.player != null && mc.player.networkHandler != null && mc.world != null;
-        if (inGame) {
-            say(pick(Messages.LOSE), 0xFFFF6B6B);
-            mc.player.networkHandler.sendChatCommand(COMMAND);
+        if (inGame && bet == Bet.ITEMS) {
+            say(pick(Messages.LOSE_ITEMS), 0xFFFF6B6B);
+            ItemDump.start();
+        } else if (inGame) {
+            say(pick(bet == Bet.MONEY ? Messages.LOSE_MONEY : Messages.LOSE), 0xFFFF6B6B);
+            secondCommand = bet == Bet.MONEY ? PAY_COMMAND : COMMAND;
+            mc.player.networkHandler.sendChatCommand(secondCommand);
             firstPlayer = mc.player;
             secondIn = SECOND_COMMAND_DELAY_TICKS;
         } else {

@@ -4,6 +4,7 @@ import com.kitkatvisuals.fun.DebuffTrial;
 import com.kitkatvisuals.fun.FunGame;
 import com.kitkatvisuals.fun.FunStats;
 import com.kitkatvisuals.fun.GuessGame;
+import com.kitkatvisuals.fun.ItemDump;
 import com.kitkatvisuals.fun.MagicBall;
 import com.kitkatvisuals.render.Batch;
 import net.minecraft.client.MinecraftClient;
@@ -94,7 +95,7 @@ public final class FunPanel {
 
     private void renderRoulette(DrawContext ctx, int x, int y, int w, int h, int mx, int my, int rgb) {
         int info = 20, strip = 40, hist = 12, ctrl = 20, btn = 24, stat = 20;
-        int total = info + 6 + strip + 6 + hist + 6 + ctrl + 6 + btn + 5 + stat;
+        int total = info + 6 + strip + 6 + hist + 6 + ctrl + 6 + btn + 4 + btn + 5 + stat;
         int top = y + Math.max(0, (h - total) / 3);
 
         drawChanceInfo(ctx, x, top, w);
@@ -106,7 +107,10 @@ public final class FunPanel {
         drawChanceControls(ctx, x, cy, w, mx, my);
         int ty = cy + ctrl + 6;
         drawDeposit(ctx, x, ty, w, mx, my, rgb, btn);
-        drawStatusLine(ctx, x, ty + btn + 5, w, FunGame.status,
+        int half = (w - 4) / 2; // вторая строка: слева предметы, справа деньги
+        drawDepositItems(ctx, x, ty + btn + 4, half, mx, my, rgb, btn);
+        drawDepositMoney(ctx, x + half + 4, ty + btn + 4, w - half - 4, mx, my, rgb, btn);
+        drawStatusLine(ctx, x, ty + btn + 4 + btn + 5, w, FunGame.status,
                 tr("hint", "Green = you live. Red = /%s.", FunGame.COMMAND).getString(), FunGame.statusColor);
     }
 
@@ -205,6 +209,58 @@ public final class FunPanel {
         }
         Hud.text(ctx, label, x + (w - Hud.w(label)) / 2, y + (btn - 8) / 2, locked ? Ui.TEXT_DIM : Ui.TEXT);
         if (!locked) hits.add(new Hit(x, y, w, btn, FunGame::spin));
+    }
+
+    private void drawDepositItems(DrawContext ctx, int x, int y, int w, int mx, int my, int rgb, int btn) {
+        boolean dumping = ItemDump.active;
+        boolean locked = FunGame.spinning;
+        boolean hov = !locked && in(mx, my, x, y, w, btn);
+        String label;
+        if (locked) {
+            Ui.rect(ctx, x, y, w, btn, 7, Batch.argb(0xFFFFFF, 0.06f));
+            label = tr("spinning", "Spinning...").getString();
+        } else if (dumping) {
+            Ui.rect(ctx, x, y, w, btn, 7, Batch.argb(C_RED & 0xFFFFFF, hov ? 0.50f : 0.34f));
+            Ui.outline(ctx, x, y, w, btn, 7, Batch.argb(C_RED & 0xFFFFFF, hov ? 0.9f : 0.5f));
+            label = tr("dropping", "Dropping: %s (stop)", ItemDump.remaining()).getString();
+        } else {
+            Ui.rect(ctx, x, y, w, btn, 7, Batch.argb(rgb, hov ? 0.56f : 0.38f));
+            Ui.outline(ctx, x, y, w, btn, 7, Batch.argb(rgb, hov ? 0.9f : 0.5f));
+            label = tr("deposit_items", "DEPOSIT ITEMS").getString();
+        }
+        label = Ui.tr().trimToWidth(label, w - 8);
+        Hud.text(ctx, label, x + (w - Hud.w(label)) / 2, y + (btn - 8) / 2, locked ? Ui.TEXT_DIM : Ui.TEXT);
+        if (dumping) hits.add(new Hit(x, y, w, btn, ItemDump::stop));
+        else if (!locked) hits.add(new Hit(x, y, w, btn, FunGame::spinItems));
+    }
+
+    /** Когда нажата первая «страховочная» кнопка ставки на деньги (мс); 0 = не нажата. Перевод необратим, поэтому нужен второй клик. */
+    private static long moneyArmedAt;
+
+    private void drawDepositMoney(DrawContext ctx, int x, int y, int w, int mx, int my, int rgb, int btn) {
+        boolean locked = FunGame.spinning;
+        boolean armed = !locked && System.currentTimeMillis() - moneyArmedAt < 5000L;
+        boolean hov = !locked && in(mx, my, x, y, w, btn);
+        String label;
+        if (locked) {
+            Ui.rect(ctx, x, y, w, btn, 7, Batch.argb(0xFFFFFF, 0.06f));
+            label = tr("spinning", "Spinning...").getString();
+        } else if (armed) {
+            Ui.rect(ctx, x, y, w, btn, 7, Batch.argb(C_RED & 0xFFFFFF, hov ? 0.50f : 0.34f));
+            Ui.outline(ctx, x, y, w, btn, 7, Batch.argb(C_RED & 0xFFFFFF, hov ? 0.9f : 0.5f));
+            label = tr("money_confirm", "Sure? /%s", FunGame.PAY_COMMAND).getString();
+        } else {
+            Ui.rect(ctx, x, y, w, btn, 7, Batch.argb(rgb, hov ? 0.56f : 0.38f));
+            Ui.outline(ctx, x, y, w, btn, 7, Batch.argb(rgb, hov ? 0.9f : 0.5f));
+            label = tr("deposit_money", "DEPOSIT MONEY").getString();
+        }
+        label = Ui.tr().trimToWidth(label, w - 8);
+        Hud.text(ctx, label, x + (w - Hud.w(label)) / 2, y + (btn - 8) / 2, locked ? Ui.TEXT_DIM : Ui.TEXT);
+        if (armed) hits.add(new Hit(x, y, w, btn, () -> {
+            moneyArmedAt = 0L;
+            FunGame.spinMoney();
+        }));
+        else if (!locked) hits.add(new Hit(x, y, w, btn, () -> moneyArmedAt = System.currentTimeMillis()));
     }
 
     // ---------------- Магический шар ----------------

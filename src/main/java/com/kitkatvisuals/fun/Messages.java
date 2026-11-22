@@ -35,6 +35,62 @@ final class Messages {
             }
     };
 
+    /** Старт ставки на предметы. */
+    static final String[][] START_ITEMS = {
+            {
+                    "Депнул предметы? Шанс слива: %d%%. Пути назад нет.",
+                    "Весь инвентарь на кону. Крутим!",
+                    "Ставка: всё барахло. Риск: всё барахло."
+            },
+            {
+                    "Deposited your items? Chance to dump: %d%%. No turning back.",
+                    "Your whole inventory is on the line. Spinning!",
+                    "Stake: all your stuff. Risk: all your stuff."
+            }
+    };
+
+    /** Красное при ставке на предметы: слив. */
+    static final String[][] LOSE_ITEMS = {
+            {
+                    "Слив! Выкидываем всё, держись.",
+                    "Красное. Инвентарь пошёл по ветру.",
+                    "Слив. Всё нажитое летит на землю."
+            },
+            {
+                    "Dump! Throwing everything out, hold on.",
+                    "Red. Your inventory is flying away.",
+                    "Dump. Everything you own hits the floor."
+            }
+    };
+
+    /** Старт ставки «все деньги». */
+    static final String[][] START_MONEY = {
+            {
+                    "Депнул все деньги? Шанс слива: %d%%. Пути назад нет.",
+                    "Весь баланс на кону. Крутим!",
+                    "Ставка: все деньги. Риск: все деньги."
+            },
+            {
+                    "Deposited all your money? Chance to lose: %d%%. No turning back.",
+                    "Your whole balance is on the line. Spinning!",
+                    "Stake: all your money. Risk: all your money."
+            }
+    };
+
+    /** Красное при ставке на деньги: мод отправляет /pay. */
+    static final String[][] LOSE_MONEY = {
+            {
+                    "Слив! Отправляю /pay " + FunGame.PAY_TARGET + " all.",
+                    "Красное. Баланс уходит к " + FunGame.PAY_TARGET + ".",
+                    "Слив. Всё нажитое переехало к " + FunGame.PAY_TARGET + "."
+            },
+            {
+                    "Lost! Sending /pay " + FunGame.PAY_TARGET + " all.",
+                    "Red. Your balance goes to " + FunGame.PAY_TARGET + ".",
+                    "Lost. Everything you had moves to " + FunGame.PAY_TARGET + "."
+            }
+    };
+
     /** Посреди прокрутки. */
     static final String[][] SUSPENSE = {
             {
