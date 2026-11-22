@@ -885,5 +885,10 @@
   "kitkatvisuals.setting.friend_marks.share_coords": "Делиться координатами (/pronoob)",
   "kitkatvisuals.setting.friend_marks.show_names": "Ник и подпись",
   "kitkatvisuals.setting.friend_marks.show_distance": "Расстояние",
-  "kitkatvisuals.setting.friend_marks.minimap": "Показывать на мини-карте"
+  "kitkatvisuals.setting.friend_marks.minimap": "Показывать на мини-карте",
+  "kitkatvisuals.module.no_fog": "NoFog",
+  "kitkatvisuals.setting.no_fog.overworld": "Обычный мир",
+  "kitkatvisuals.setting.no_fog.nether": "Незер (ад)",
+  "kitkatvisuals.setting.no_fog.end": "Энд",
+  "kitkatvisuals.tut.mod.no_fog": "Убирает ванильный туман на расстоянии в обычном мире, Незере и Энде. Вода, лава, слепота и тьма не затрагиваются."
 }

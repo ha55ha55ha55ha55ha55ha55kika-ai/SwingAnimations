@@ -689,5 +689,10 @@
   "kitkatvisuals.setting.friend_marks.share_coords": "Share my coordinates (/pronoob)",
   "kitkatvisuals.setting.friend_marks.show_names": "Name and label",
   "kitkatvisuals.setting.friend_marks.show_distance": "Distance",
-  "kitkatvisuals.setting.friend_marks.minimap": "Show on minimap"
+  "kitkatvisuals.setting.friend_marks.minimap": "Show on minimap",
+  "kitkatvisuals.module.no_fog": "NoFog",
+  "kitkatvisuals.setting.no_fog.overworld": "Overworld",
+  "kitkatvisuals.setting.no_fog.nether": "Nether",
+  "kitkatvisuals.setting.no_fog.end": "The End",
+  "kitkatvisuals.tut.mod.no_fog": "Removes vanilla distance fog in the Overworld, Nether and End. Water, lava, blindness and darkness are not affected."
 }

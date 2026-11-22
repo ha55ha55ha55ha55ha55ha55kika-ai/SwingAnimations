@@ -46,6 +46,7 @@ public final class ModuleManager {
     public static BlockOutlineModule blockOutline;
     public static RemovalsModule removals;
     public static ClearLiquidsModule clearLiquids;
+    public static NoFogModule noFog;
     public static CustomFovModule customFov;
     public static ZoomModule zoom;
     public static CosmeticsModule cosmetics;
@@ -128,6 +129,8 @@ public final class ModuleManager {
         MODULES.add(new WorldParticlesModule());
         clearLiquids = new ClearLiquidsModule();
         MODULES.add(clearLiquids);
+        noFog = new NoFogModule();
+        MODULES.add(noFog);
         customFov = new CustomFovModule();
         MODULES.add(customFov);
         zoom = new ZoomModule();
