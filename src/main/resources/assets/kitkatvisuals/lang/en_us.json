@@ -703,5 +703,7 @@
   "kitkatvisuals.update.dev": "[KitKat] Updates only work in the built jar.",
   "kitkatvisuals.update.busy": "[KitKat] A check is already running.",
   "kitkatvisuals.update.on": "[KitKat] Auto-update enabled.",
-  "kitkatvisuals.update.off": "[KitKat] Auto-update disabled."
+  "kitkatvisuals.update.off": "[KitKat] Auto-update disabled.",
+  "kitkatvisuals.setting.minimap.armor_stands": "Armor stands (highlighted)",
+  "kitkatvisuals.setting.minimap.stand_edge": "Armor stands beyond range at the edge"
 }

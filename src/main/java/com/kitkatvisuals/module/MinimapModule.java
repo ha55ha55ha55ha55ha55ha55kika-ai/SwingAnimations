@@ -92,6 +92,8 @@ public final class MinimapModule extends Module {
     private final Setting.Bool otherCart = add(new Setting.Bool("other_minecart", "Other minecarts", false));
     private final Setting.Bool chestBoat = add(new Setting.Bool("chest_boat", "Boat with chest", true));
     private final Setting.Bool primedTnt = add(new Setting.Bool("primed_tnt", "Lit TNT", false));
+    private final Setting.Bool armorStands = add(new Setting.Bool("armor_stands", "Armor stands (highlighted)", true));
+    private final Setting.Bool standEdge = add(new Setting.Bool("stand_edge", "Armor stands beyond range at the edge", true));
     private final Setting.Bool highlightCarts = add(new Setting.Bool("highlight_carts", "Highlight chest carts and boats", true));
     private final Setting.Bool cartEdge = add(new Setting.Bool("cart_edge", "Chest carts beyond range at the edge", true));
     private final Setting.Bool cartDistance = add(new Setting.Bool("cart_distance", "Distance to chest carts and boats", true));
@@ -541,7 +543,7 @@ public final class MinimapModule extends Module {
 
     private void drawEntities(DrawContext ctx, MinecraftClient mc, ClientPlayerEntity self, float td, double ppx, double ppz,
                               float cx, float cy, float r, boolean circle, boolean rot, float c, float s, float scale) {
-        boolean carts = chestCart.value || hopperCart.value || tntCart.value || otherCart.value || chestBoat.value || primedTnt.value;
+        boolean carts = chestCart.value || hopperCart.value || tntCart.value || otherCart.value || chestBoat.value || primedTnt.value || armorStands.value;
         if (!players.value && !hostile.value && !passive.value && !items.value && !carts) return;
         float rr = curRange;
         long now = System.currentTimeMillis();
@@ -575,7 +577,11 @@ public final class MinimapModule extends Module {
             } else if (e instanceof TntEntity) {
                 if (!primedTnt.value) continue;
                 kind = 6;
-            } else if (e.isInvisible() || e instanceof ArmorStandEntity) {
+            } else if (e instanceof ArmorStandEntity stand) {
+                // невидимые и marker-стойки это голограммы на серверах, их не показываем
+                if (!armorStands.value || stand.isInvisible() || stand.isMarker()) continue;
+                kind = 7;
+            } else if (e.isInvisible()) {
                 continue;
             } else if (e instanceof PlayerEntity pl) {
                 if (!players.value) continue;
@@ -604,12 +610,12 @@ public final class MinimapModule extends Module {
             double dx = ep.x - ppx, dz = ep.z - ppz;
             double dist2 = dx * dx + dz * dz;
             float[] o = toScreen(dx, dz, rot, c, s, scale);
-            float limit = r - (kind == 0 ? 3f : 6f);
+            float limit = r - (kind == 0 ? 3f : kind == 7 ? 10f : 6f);
             float len = circle ? (float) Math.sqrt(o[0] * o[0] + o[1] * o[1]) : Math.max(Math.abs(o[0]), Math.abs(o[1]));
             boolean outside = dist2 > (double) rr * rr || len > limit;
             if (outside) {
                 // сундуки на колёсах и лодки хочется видеть всегда: за пределами радиуса рисуем их на краю карты
-                if (cartEdge.value && (kind == 1 || kind == 5)) o = edge(o[0], o[1], limit, circle);
+                if ((cartEdge.value && (kind == 1 || kind == 5)) || (standEdge.value && kind == 7 && dist2 <= 9.0 * rr * rr)) o = edge(o[0], o[1], limit, circle);
                 else continue;
             }
             int px = Math.round(cx + o[0]);
@@ -625,6 +631,14 @@ public final class MinimapModule extends Module {
                     labels++;
                     label(ctx, e.getName().getString(), px, py + dotSize / 2 + 3, col);
                 }
+                continue;
+            }
+            if (kind == 7) {
+                drawStand(ctx, px, py, now);
+                String t = Text.translatableWithFallback("kitkatvisuals.minimap.dist", "%sm", Math.round(Math.sqrt(dist2))).getString();
+                int tw = Hud.w(t);
+                int off = Math.round(9 * iconScale.value);
+                Hud.text(ctx, t, o[0] > r * 0.35f ? px - off - tw : px + off, py - 4, 0xFFFF7BEA);
                 continue;
             }
             drawIcon(ctx, kind, px, py, now);
@@ -872,6 +886,20 @@ public final class MinimapModule extends Module {
     }
 
     /** Значки техники и сундуков 7x5 пикселей, масштабируются настройкой «Icon scale». */
+    private static ItemStack standIcon;
+
+    /** Стойка для брони: иконка предмета в яркой пульсирующей рамке, чтобы её было видно сразу. */
+    private void drawStand(DrawContext ctx, int px, int py, long now) {
+        if (standIcon == null) standIcon = new ItemStack(Items.ARMOR_STAND);
+        int size = Math.max(10, Math.round(mobIconSize.value * iconScale.value));
+        double pulse = 0.5 + 0.5 * Math.sin(now / 170.0);
+        int g = size / 2 + 4;
+        int glow = 0x55 + (int) (0x77 * pulse);
+        ctx.fill(px - g - 1, py - g - 1, px + g + 2, py + g + 2, 0xFF000000);                       // тёмный контур
+        ctx.fill(px - g, py - g, px + g + 1, py + g + 1, (glow << 24) | 0xFF2BD6);                   // розовое свечение
+        drawItemIcon(ctx, standIcon, px, py, size, pulse > 0.5 ? 0x2BF0FF : 0xFFFFFF);              // иконка в голубой/белой рамке
+    }
+
     private void drawIcon(DrawContext ctx, int kind, int px, int py, long now) {
         var m = ctx.getMatrices();
         m.push();

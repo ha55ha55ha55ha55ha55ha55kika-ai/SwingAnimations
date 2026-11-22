@@ -899,5 +899,7 @@
   "kitkatvisuals.update.dev": "[KitKat] Обновления работают только в собранном jar.",
   "kitkatvisuals.update.busy": "[KitKat] Проверка уже идёт.",
   "kitkatvisuals.update.on": "[KitKat] Автообновление включено.",
-  "kitkatvisuals.update.off": "[KitKat] Автообновление выключено."
+  "kitkatvisuals.update.off": "[KitKat] Автообновление выключено.",
+  "kitkatvisuals.setting.minimap.armor_stands": "Стойки для брони (выделены)",
+  "kitkatvisuals.setting.minimap.stand_edge": "Стойки за радиусом показывать на краю"
 }
