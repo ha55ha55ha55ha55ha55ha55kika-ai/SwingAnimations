@@ -61,6 +61,7 @@ public final class ModuleManager {
     public static SpawnerSearchModule spawnerSearch;
     public static AnarchyFinderModule anarchyFinder;
     public static TotemEffectModule totemEffect;
+    public static RecordModule recorder;
     public static FriendMarksModule friendMarks;
     private static final Map<String, Integer> RENDER_ERRORS = new LinkedHashMap<>();
     private static final int MAX_RENDER_ERRORS = 5;
@@ -161,6 +162,8 @@ public final class ModuleManager {
         totemEffect = new TotemEffectModule();
         MODULES.add(totemEffect);
         MODULES.add(new ArmorColorModule());
+        recorder = new RecordModule();
+        MODULES.add(recorder);
         friendMarks = new FriendMarksModule();
         MODULES.add(friendMarks);
         com.kitkatvisuals.gui.HudLayout.load();
