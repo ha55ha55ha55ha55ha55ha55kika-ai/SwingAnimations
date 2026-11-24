@@ -34,7 +34,7 @@ MAX_SERVERS = 200
 MAX_PER_SERVER = 500
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 NAME_RE = re.compile(r"^[A-Za-z0-9_.]{1,32}$")
-VERSION = 4
+VERSION = 5
 # Косметика: "id=1,размер,x,y,z;id2=1,..." (только надетые предметы). Лимиты те же, что в клиенте (CosmeticState).
 COS_ID_RE = re.compile(r"^[a-z0-9_]{1,40}$")
 COS_MAX_ITEMS = 16
@@ -482,7 +482,7 @@ class Handler(BaseHTTPRequestHandler):
             if uid not in PRESENCE and len(PRESENCE) >= MAX_PRESENCE:
                 return self._send(503)
             PRESENCE[uid] = {"uuid": uid, "name": name, "server": server, "dim": clean(o.get("dim", ""))[:60],
-                             "share": share, "x": fnum(o, "x"), "y": fnum(o, "y"), "z": fnum(o, "z"), "ts": now}
+                             "anarchy": clean(o.get("anarchy", ""))[:30], "share": share, "x": fnum(o, "x"), "y": fnum(o, "y"), "z": fnum(o, "z"), "ts": now}
             changed = False
             my_friends = FRIENDS.get(uid, {})
             for fu in my_friends:                       # у друзей я записан под свежим ником
@@ -496,7 +496,8 @@ class Handler(BaseHTTPRequestHandler):
                 p = PRESENCE.get(fu)
                 on = p is not None and now - p["ts"] <= PRESENCE_TTL
                 friends.append({"uuid": fu, "name": p["name"] if p else fname, "online": on,
-                                "server": p["server"] if on else ""})
+                                "server": p["server"] if on else "",
+                                "anarchy": p.get("anarchy", "") if on else ""})
             requests = [{"uuid": fu, "name": r["name"], "age": int(now - r["ts"])}
                         for fu, r in REQS.get(uid, {}).items() if now - r["ts"] <= REQ_TTL]
             marks = []

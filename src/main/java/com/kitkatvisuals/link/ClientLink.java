@@ -72,6 +72,10 @@ public final class ClientLink {
     }
 
     private static final Map<UUID, Peer> PEERS = new ConcurrentHashMap<>();
+    // диагностика последнего опроса реле (/kk debug)
+    private static volatile int dbgFetched, dbgAccepted, dbgNotHere, dbgNameMismatch;
+    private static volatile long dbgPollAt;
+    private static volatile String dbgError = "";
     private static volatile ScheduledExecutorService http;
     private static volatile String lastSentKey = "";
     private static volatile long lastHelloAt;
@@ -252,9 +256,18 @@ public final class ClientLink {
         ClientPlayNetworkHandler h = mc.getNetworkHandler();
         if (h == null) return;
         PlayerListEntry e = h.getPlayerListEntry(id);
-        if (e == null) return;
-        String name = e.getProfile().getName();
-        if (!claimedName.isEmpty() && !claimedName.equalsIgnoreCase(name)) return;
+        // Игрок реально на сервере, если он есть в списке игроков ИЛИ как сущность в вашем мире. Второе нужно серверам со
+        // скрытым/подменённым TAB (анархии): без него косметика таких игроков отбрасывалась.
+        net.minecraft.entity.player.PlayerEntity inWorld = mc.world == null ? null : mc.world.getPlayerByUuid(id);
+        if (e == null && inWorld == null) {
+            dbgNotHere++;
+            return;
+        }
+        String name = e != null ? e.getProfile().getName() : inWorld.getName().getString();
+        if (inWorld == null && !claimedName.isEmpty() && !claimedName.equalsIgnoreCase(name)) {
+            dbgNameMismatch++;
+            return;
+        }
         if (state < 0 || state > 2) state = 0;
         String cos = cosmetics;
         if (cos == null) {
@@ -262,6 +275,7 @@ public final class ClientLink {
             cos = old == null ? "" : old.cosmetics();
         }
         PEERS.put(id, new Peer(id, name, state, title, artist, cos, System.currentTimeMillis()));
+        dbgAccepted++;
     }
 
     // ---------------- отправка (из тика модуля, раз в секунду) ----------------
@@ -384,6 +398,12 @@ public final class ClientLink {
                 if (root.isJsonArray()) {
                     JsonArray arr = root.getAsJsonArray();
                     int n = Math.min(arr.size(), 300);
+                    dbgFetched = arr.size();
+                    dbgAccepted = 0;
+                    dbgNotHere = 0;
+                    dbgNameMismatch = 0;
+                    dbgPollAt = System.currentTimeMillis();
+                    dbgError = "";
                     for (int i = 0; i < n; i++) {
                         try {
                             JsonObject p = arr.get(i).getAsJsonObject();
@@ -403,6 +423,7 @@ public final class ClientLink {
                 }
             } catch (Throwable t) {
                 KitKatVisualsClient.LOGGER.debug("ClientLink HTTP: {}", t.toString());
+                dbgError = t.toString();
                 if (t.getMessage() != null && t.getMessage().contains("HTTP 403") && !warnedAuth) {
                     warnedAuth = true;
                     KitKatVisualsClient.LOGGER.warn("ClientLink: реле отклонило токен (403). Проверьте relay_token и KITKAT_TOKEN на реле.");
@@ -463,6 +484,40 @@ public final class ClientLink {
         } finally {
             c.disconnect();
         }
+    }
+
+    /** Отчёт для /kk debug: почему косметика других игроков может не показываться. */
+    public static java.util.List<String> debugReport(MinecraftClient mc) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        ClientLinkModule m = module();
+        if (m == null) {
+            out.add("Модуль ClientLink выключен: включи его в ClickGUI.");
+            return out;
+        }
+        out.add("Транспорт HTTP: " + (m.useHttp() ? "да" : "нет (выбран только канал сервера)")
+                + ", реле: " + (m.relayUrl().isEmpty() ? "URL НЕ ЗАДАН" : "задан"));
+        out.add("Ключ сервера: " + (serverId(mc).isEmpty() ? "пусто (не мультиплеер из списка серверов)" : serverId(mc))
+                + "  (у друга должен быть такой же)");
+        var cm = ModuleManager.cosmetics;
+        String mine = myCosmetics();
+        out.add("Моя косметика: " + (cm == null || !cm.isEnabled() ? "модуль Cosmetics выключен"
+                : mine.isEmpty() ? "ничего не надето или «Show my cosmetics» выключено" : "отправляю (" + mine.split(";").length + " шт.)")
+                + "; вижу чужую: " + (cm != null && cm.showsOthers() ? "да" : "нет"));
+        long ago = dbgPollAt == 0 ? -1 : (System.currentTimeMillis() - dbgPollAt) / 1000;
+        out.add("Опрос реле: " + (ago < 0 ? "ещё не было" : ago + " с назад") + ": в списке " + dbgFetched + ", принято " + dbgAccepted
+                + ", нет на сервере " + dbgNotHere + ", ник не совпал " + dbgNameMismatch);
+        int withCos = 0;
+        long now = System.currentTimeMillis();
+        for (Peer p : PEERS.values()) if (!p.cosmetics().isEmpty() && now - p.seen() < TTL_MS) withCos++;
+        int near = 0;
+        if (mc.world != null && mc.player != null) {
+            for (net.minecraft.entity.player.PlayerEntity o : mc.world.getPlayers()) {
+                if (o != mc.player && !cosmeticsOf(o.getUuid()).isEmpty() && mc.player.squaredDistanceTo(o) <= 64.0 * 64.0) near++;
+            }
+        }
+        out.add("Игроков с косметикой известно: " + withCos + ", из них рядом (до 64 блоков): " + near);
+        if (!dbgError.isEmpty()) out.add("Последняя ошибка реле: " + dbgError);
+        return out;
     }
 
     /** Значок + пробел перед текстом. */

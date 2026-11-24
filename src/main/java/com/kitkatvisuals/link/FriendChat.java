@@ -226,8 +226,8 @@ public final class FriendChat {
     private static String helpText(MinecraftClient c, String server) {
         StringBuilder sb = new StringBuilder("[HELP] Нужна помощь! Ник: ").append(c.getSession().getUsername());
         sb.append(" | Сервер: ").append(server);
-        int anarchy = AnarchyDetector.detect(c);
-        if (anarchy > 0) sb.append(" | Анархия: ").append(anarchy);
+        String anarchy = AnarchyDetector.label(c);
+        if (!anarchy.isEmpty()) sb.append(" | Анархия: ").append(anarchy);
         String dim = FriendLink.dimKey(c);
         String dimName = switch (dim) {
             case "minecraft:overworld" -> "Верхний мир";

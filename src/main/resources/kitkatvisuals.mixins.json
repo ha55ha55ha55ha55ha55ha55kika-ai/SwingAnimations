@@ -45,8 +45,7 @@
     "ArmorOwnerMixin",
     "ArmorColorMixin",
     "ModelColorMixin",
-    "TotemFloatingItemMixin",
-    "RecordFrameMixin"
+    "TotemFloatingItemMixin"
   ],
   "injectors": {
     "defaultRequire": 1

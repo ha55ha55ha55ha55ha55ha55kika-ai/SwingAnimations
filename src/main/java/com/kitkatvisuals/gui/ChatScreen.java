@@ -138,7 +138,7 @@ public final class ChatScreen extends Screen {
             int textRight = px + listW - 6 - (unread > 0 ? 16 : 0);
             Ui.text(ctx, Text.literal(tr.trimToWidth(f.name(), textRight - (px + 17))), px + 17, ry + 3,
                     f.online() ? Ui.TEXT : Ui.TEXT_DIM);
-            String sub = f.online() ? (f.server().isEmpty() ? "в сети" : f.server()) : "не в сети";
+            String sub = f.online() ? (f.server().isEmpty() ? "в сети" : f.server() + (f.anarchy().isEmpty() ? "" : " · " + f.anarchy())) : "не в сети";
             Ui.text(ctx, Text.literal(tr.trimToWidth(sub, textRight - (px + 17))), px + 17, ry + 13,
                     f.online() ? 0xFF7FD67F : 0xFF777777);
             if (unread > 0) {
@@ -179,7 +179,7 @@ public final class ChatScreen extends Screen {
         TextRenderer tr = textRenderer;
         // шапка
         Ui.text(ctx, Text.literal(f.name()), x0 + 2, py + 7, 0xFF000000 | FriendLink.colorFor(f.name()));
-        String st = f.online() ? ("● в сети" + (f.server().isEmpty() ? "" : " · " + f.server())) : "не в сети (сообщение дойдёт, когда зайдёт)";
+        String st = f.online() ? ("● в сети" + (f.server().isEmpty() ? "" : " · " + f.server()) + (f.anarchy().isEmpty() ? "" : " · " + f.anarchy())) : "не в сети (сообщение дойдёт, когда зайдёт)";
         Ui.text(ctx, Text.literal(tr.trimToWidth(st, x1 - x0 - 4)), x0 + 2, py + 18, f.online() ? 0xFF7FD67F : 0xFF888888);
         ctx.fill(x0, py + 30, x1, py + 31, Ui.SEP);
 

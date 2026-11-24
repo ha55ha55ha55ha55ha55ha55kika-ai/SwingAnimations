@@ -56,7 +56,7 @@ public final class FriendLink {
     private FriendLink() {}
 
     // ---------------------------------------------------------------- модели
-    public record Friend(UUID id, String name, boolean online, String server) {}
+    public record Friend(UUID id, String name, boolean online, String server, String anarchy) {}
     public record Request(UUID from, String name, long expiresAt) {}
     public record Mark(String id, UUID owner, String ownerName, String server, String dim,
                        double x, double y, double z, String label, boolean mine) {}
@@ -182,7 +182,7 @@ public final class FriendLink {
             if (accept) respond(c, pending.get(0).name(), true);
             else if (deny) respond(c, pending.get(0).name(), false);
         }
-        if (mark) placeMark(c, "");
+        if (mark) placeMark(c, takeMarkLabel());
         if (unmark) clearMarks(c);
 
         if (!linkReady()) return;
@@ -254,6 +254,7 @@ public final class FriendLink {
         if (o == null) return null;
         o.addProperty("server", server);
         o.addProperty("dim", dimKey(c));
+        o.addProperty("anarchy", com.kitkatvisuals.util.AnarchyDetector.label(c));
         FriendMarksModule fm = ModuleManager.friendMarks;
         boolean share = withCoords && (fm == null || fm.shareCoords.value);
         o.addProperty("share", share);
@@ -377,7 +378,7 @@ public final class FriendLink {
             for (JsonElement e : arr(o, "friends")) {
                 if (!e.isJsonObject()) continue;
                 JsonObject f = e.getAsJsonObject();
-                fl.add(new Friend(UUID.fromString(str(f, "uuid")), str(f, "name"), bool(f, "online"), str(f, "server")));
+                fl.add(new Friend(UUID.fromString(str(f, "uuid")), str(f, "name"), bool(f, "online"), str(f, "server"), str(f, "anarchy")));
             }
 
             handled.values().removeIf(t -> now - t > 10_000);
@@ -640,6 +641,20 @@ public final class FriendLink {
     }
 
     // ---------------------------------------------------------------- метки
+    /** Название для следующей метки по клавише: вкладка «Друзья» кладёт сюда текст поля «Название метки». */
+    public static volatile String pendingMarkLabel = "";
+    /** true: название только что ушло в метку, поле на вкладке нужно очистить. */
+    public static volatile boolean markLabelUsed = false;
+
+    static String takeMarkLabel() {
+        String t = pendingMarkLabel == null ? "" : pendingMarkLabel.strip();
+        if (!t.isEmpty()) {
+            pendingMarkLabel = "";
+            markLabelUsed = true;
+        }
+        return t;
+    }
+
     public static void placeMark(MinecraftClient c, String label) {
         FriendMarksModule fm = ModuleManager.friendMarks;
         if (fm == null || !fm.isEnabled()) {

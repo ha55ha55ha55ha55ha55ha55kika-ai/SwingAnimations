@@ -124,6 +124,9 @@ public final class CosmeticsModule extends Module {
         return sb.toString();
     }
 
+    /** Включено ли «See other players' cosmetics» (для диагностики /kk debug). */
+    public boolean showsOthers() { return showOthers.value; }
+
     public void openWardrobe() {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (!isEnabled()) setEnabled(true);

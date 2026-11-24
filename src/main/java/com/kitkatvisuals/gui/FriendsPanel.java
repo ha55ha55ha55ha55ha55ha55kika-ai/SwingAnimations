@@ -35,6 +35,8 @@ public final class FriendsPanel {
     private final List<Hit> hits = new ArrayList<>();
     private TextFieldWidget field;
     private int fieldX, fieldY, fieldW;
+    private TextFieldWidget markField;
+    private int markX, markY, markW;
     /** Какому действию сейчас назначается клавиша (null: не ждём нажатия). */
     private KeyBinding listeningFor;
     private String listeningName = "";
@@ -62,6 +64,25 @@ public final class FriendsPanel {
         return field;
     }
 
+    private TextFieldWidget markField() {
+        if (markField == null) {
+            markField = new TextFieldWidget(Ui.tr(), 0, 0, 100, 12, Text.empty());
+            markField.setDrawsBackground(false);
+            markField.setMaxLength(40);
+            markField.setPlaceholder(Text.literal("Название метки (необязательно)"));
+            markField.setFocused(false);
+        }
+        return markField;
+    }
+
+    /** Ставит метку с названием из поля (подпись видят друзья над меткой) и очищает поле. */
+    private void placeNamedMark() {
+        String name = markField().getText().strip();
+        FriendLink.placeMark(mc(), name);
+        markField().setText("");
+        FriendLink.pendingMarkLabel = "";
+    }
+
     // ---------------------------------------------------------------- отрисовка
     public void render(DrawContext ctx, int x, int y, int w, int h, int mx, int my, int rgb) {
         hits.clear();
@@ -82,14 +103,31 @@ public final class FriendsPanel {
         button(ctx, x + w - addW, cy, addW, 18, "Добавить", Ui.ACCENT_BG, Ui.ACCENT_LINE, mx, my, this::addFriend);
         cy += 24;
 
+        // ---- метка с названием (клавиша метки берёт название из этого поля; ПКМ по кнопке: назначить клавишу)
+        TextFieldWidget mf = markField();
+        if (FriendLink.markLabelUsed) {                 // название ушло в метку по клавише: поле очищаем
+            FriendLink.markLabelUsed = false;
+            mf.setText("");
+        }
+        FriendLink.pendingMarkLabel = mf.getText().strip();
+        int mbW = 110;
+        markX = x;
+        markY = cy;
+        markW = w - mbW - 6;
+        Ui.rect(ctx, markX, markY, markW, 18, 6, Ui.FIELD);
+        mf.setX(x + 6);
+        mf.setY(cy + 5);
+        mf.setWidth(markW - 12);
+        mf.render(ctx, mx, my, 0f);
+        bindButton(ctx, x + w - mbW, cy, mbW, "Метка", Ui.ACCENT_BG, Ui.ACCENT_LINE, FriendLink.markKey, "Метка", mx, my, this::placeNamedMark);
+        cy += 24;
+
         // ---- действия (ПКМ по кнопке: назначить клавишу)
-        int bw = (w - 20) / 5;
+        int bw = (w - 15) / 4;
         int ax = x;
         bindButton(ctx, ax, cy, bw, "Помощь!", RED, RED_H, FriendChat.helpKey, "Помощь!", mx, my, () -> FriendChat.sendHelp(c));
         ax += bw + 5;
         bindButton(ctx, ax, cy, bw, "Чат", Ui.ACCENT_BG, Ui.ACCENT_LINE, FriendChat.openKey, "Чат", mx, my, () -> ChatScreen.open(c, null));
-        ax += bw + 5;
-        bindButton(ctx, ax, cy, bw, "Метка", Ui.ACCENT_BG, Ui.ACCENT_LINE, FriendLink.markKey, "Метка", mx, my, () -> FriendLink.placeMark(c, ""));
         ax += bw + 5;
         bindButton(ctx, ax, cy, bw, "Снять", Ui.ACCENT_BG, Ui.ACCENT_LINE, FriendLink.unmarkKey, "Снять метки", mx, my, () -> FriendLink.clearMarks(c));
         ax += bw + 5;
@@ -169,7 +207,7 @@ public final class FriendsPanel {
             int textW = chatX - (x + 16) - 4;
             Ui.text(ctx, Text.literal(Ui.tr().trimToWidth(fr.name(), textW)), x + 16, ry + 3,
                     fr.online() ? 0xFF000000 | FriendLink.colorFor(fr.name()) : Ui.TEXT_DIM);
-            String sub = fr.online() ? (fr.server().isEmpty() ? "в сети" : fr.server()) : "не в сети";
+            String sub = fr.online() ? (fr.server().isEmpty() ? "в сети" : fr.server() + (fr.anarchy().isEmpty() ? "" : " · " + fr.anarchy())) : "не в сети";
             Ui.text(ctx, Text.literal(Ui.tr().trimToWidth(sub, textW)), x + 16, ry + 12, fr.online() ? 0xFF7FD67F : 0xFF777777);
 
             boolean visible = ry >= top - 4 && ry + 22 <= bottom + 4;
@@ -245,9 +283,13 @@ public final class FriendsPanel {
     // ---------------------------------------------------------------- ввод
     public boolean click(double mx, double my, int button) {
         TextFieldWidget f = field();
-        boolean inField = mx >= fieldX && mx < fieldX + fieldW && my >= fieldY && my < fieldY + 18;
-        f.setFocused(inField);
-        if (inField) f.mouseClicked(mx, my, button);
+        boolean inNick = mx >= fieldX && mx < fieldX + fieldW && my >= fieldY && my < fieldY + 18;
+        boolean inMark = mx >= markX && mx < markX + markW && my >= markY && my < markY + 18;
+        boolean inField = inNick || inMark;
+        f.setFocused(inNick);
+        markField().setFocused(inMark);
+        if (inNick) f.mouseClicked(mx, my, button);
+        if (inMark) markField().mouseClicked(mx, my, button);
         listeningFor = null;     // клик в любое другое место отменяет ожидание клавиши (кнопка бинда включит его снова)
         if (inField) return true;
         if (button != 0 && button != 1) return false;
@@ -293,21 +335,31 @@ public final class FriendsPanel {
             else f.keyPressed(keyCode, scanCode, modifiers);
             return true;
         }
+        TextFieldWidget mf = markField();
+        if (mf.isFocused()) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) mf.setFocused(false);
+            else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) placeNamedMark();
+            else mf.keyPressed(keyCode, scanCode, modifiers);
+            return true;
+        }
         return false;
     }
 
     public boolean charTyped(char chr, int modifiers) {
         TextFieldWidget f = field();
-        return f.isFocused() && f.charTyped(chr, modifiers);
+        if (f.isFocused()) return f.charTyped(chr, modifiers);
+        TextFieldWidget mf = markField();
+        return mf.isFocused() && mf.charTyped(chr, modifiers);
     }
 
     /** Можно ли закрыть окно клавишей бинда (не вводим ник и не назначаем клавишу). */
     public boolean idle() {
-        return listeningFor == null && !field().isFocused();
+        return listeningFor == null && !field().isFocused() && !markField().isFocused();
     }
 
     public void blur() {
         listeningFor = null;
         field().setFocused(false);
+        markField().setFocused(false);
     }
 }

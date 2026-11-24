@@ -38,6 +38,12 @@ final class FriendCommands {
                     FriendChat.openLater(mc(), null);
                     return 1;
                 })
+                .then(literal("debug").executes(ctx -> {
+                    for (String line : ClientLink.debugReport(mc())) {
+                        FriendLink.say(mc(), Text.literal(line).formatted(Formatting.GRAY));
+                    }
+                    return 1;
+                }))
                 .then(literal("sos").executes(ctx -> {
                     FriendChat.sendHelp(mc());
                     return 1;
@@ -118,6 +124,7 @@ final class FriendCommands {
                 "/friend unmark         убрать мои метки",
                 "/kk [ник] [текст]     чат с друзьями (без текста открывает окно; клавиша J)",
                 "/kk sos               позвать друзей на помощь (ник, сервер, анархия, координаты)",
+                "/kk debug             диагностика: почему не видно косметику других игроков",
                 "/pronoob               кто сейчас с визуалом, где и на каком сервере"
         };
         for (String l : lines) c.inGameHud.getChatHud().addMessage(Text.literal(" " + l).formatted(Formatting.GRAY));
