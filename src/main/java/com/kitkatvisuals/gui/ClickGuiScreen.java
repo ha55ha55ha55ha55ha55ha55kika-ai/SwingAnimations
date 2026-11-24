@@ -1,5 +1,6 @@
 package com.kitkatvisuals.gui;
 
+import com.kitkatvisuals.link.FriendChat;
 import com.kitkatvisuals.config.UserConfigs;
 import com.kitkatvisuals.input.KeyBinds;
 import com.kitkatvisuals.module.Module;
@@ -46,6 +47,7 @@ public class ClickGuiScreen extends Screen {
     private static final int PAD = 12;
     private static final String CONFIGS = "configs";
     private static final String FUN = "fun";
+    private static final String FRIENDS_TAB = "friends";
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
     private static final Identifier LOGO = Identifier.of("kitkatvisuals", "textures/gui/logo_small.png"); // 128x92
 
@@ -116,6 +118,8 @@ public class ClickGuiScreen extends Screen {
     private final Tab configsTab = new Tab(CONFIGS, "kitkatvisuals.cat.configs", "Configs", "pin");
     private final Tab funTab = new Tab(FUN, "kitkatvisuals.cat.fun", "Fun", "keys");
     private final FunPanel fun = new FunPanel();
+    private final Tab friendsTab = new Tab(FRIENDS_TAB, "kitkatvisuals.cat.friends", "Friends", "user");
+    private final FriendsPanel friends = new FriendsPanel();
     private final Set<Module> expanded = new HashSet<>();
     private final List<Row> rows = new ArrayList<>();
     private final List<Block> blocks = new ArrayList<>();
@@ -165,6 +169,7 @@ public class ClickGuiScreen extends Screen {
         tabs.add(move);
         tabs.add(player);
         tabs.add(anim);
+        tabs.add(friendsTab);
         tabs.add(funTab);
         fillTabs();
         if (current() == null) selected = "render";
@@ -178,6 +183,14 @@ public class ClickGuiScreen extends Screen {
     private boolean isConfigs() { return CONFIGS.equals(selected); }
 
     private boolean isFun() { return FUN.equals(selected); }
+
+    private boolean isFriends() { return FRIENDS_TAB.equals(selected); }
+
+    /** Открывает ClickGUI сразу на вкладке «Друзья» (по бинду). */
+    public static void openFriends(net.minecraft.client.MinecraftClient c) {
+        selected = FRIENDS_TAB;
+        c.setScreen(create(null));
+    }
 
     private Tab current() {
         if (isConfigs()) return configsTab;
@@ -226,7 +239,7 @@ public class ClickGuiScreen extends Screen {
 
     /** Модули текущей вкладки или, при поиске, все подходящие по названию или настройке (любая вкладка). */
     private List<Module> shownModules() {
-        if (isFun()) return List.of();
+        if (isFun() || isFriends()) return List.of();
         if (query.isBlank()) {
             Tab t = current();
             return t == null ? List.of() : t.modules;
@@ -376,7 +389,7 @@ public class ClickGuiScreen extends Screen {
     private int rowW(Row r) { return r.kind == Kind.MODULE ? lw - 8 : lw - 8 - 20; }
 
     private Row rowAt(double mx, double my) {
-        if (isConfigs() || isFun()) return null;
+        if (isConfigs() || isFun() || isFriends()) return null;
         if (mx < lx || mx > lx + lw || my < listTop() || my > lb) return null;
         for (Row r : rows) {
             int ry = rowTop(r);
@@ -417,10 +430,11 @@ public class ClickGuiScreen extends Screen {
 
         drawSidebar(ctx, mx, my, rgb);
         drawHeader(ctx, rgb);
-        if (!isConfigs() && !isFun()) drawSearch(ctx, mx, my, delta, rgb);
-        ctx.enableScissor(lx - 4, isFun() ? ly : listTop(), lx + lw + 4, lb);
+        if (!isConfigs() && !isFun() && !isFriends()) drawSearch(ctx, mx, my, delta, rgb);
+        ctx.enableScissor(lx - 4, (isFun() || isFriends()) ? ly : listTop(), lx + lw + 4, lb);
         if (isConfigs()) drawCfgList(ctx, mx, my, rgb);
         else if (isFun()) fun.render(ctx, lx, ly, lw - 8, lb - ly, mx, my, rgb);
+        else if (isFriends()) friends.render(ctx, lx, ly, lw - 8, lb - ly, mx, my, rgb);
         else {
             drawModules(ctx, mx, my, rgb);
             if (shownModules().isEmpty()) Hud.text(ctx, tr("ui.search_empty", "Nothing found"), lx + 8, listTop() + 6, Ui.TEXT_DIM);
@@ -498,7 +512,7 @@ public class ClickGuiScreen extends Screen {
         Hud.icon(ctx, t.icon, x + 9, y + (h - 10) / 2, 10);
         int col = sel ? Ui.ACCENT : Ui.TEXT_DIM;
         Hud.text(ctx, tr(t.titleKey.substring("kitkatvisuals.".length()), t.fallback), x + 24, y + (h - 8) / 2, col);
-        if (t != funTab) {
+        if (t != funTab && t != friendsTab) {
             int n = t == configsTab ? cfgCount() : t.modules.size();
             Hud.textRight(ctx, String.valueOf(n), x + w - 8, y + (h - 8) / 2, sel ? Ui.ACCENT : 0x80BEC3CD);
         }
@@ -532,6 +546,7 @@ public class ClickGuiScreen extends Screen {
         layoutDirty = true;
         if (nameField != null) nameField.setFocused(false);
         if (searchField != null) searchField.setFocused(false);
+        friends.blur();
         if (isConfigs()) refreshCfgs();
     }
 
@@ -557,7 +572,9 @@ public class ClickGuiScreen extends Screen {
         m.scale(1.3f, 1.3f, 1f);
         Hud.text(ctx, title, 0, 0, Ui.TEXT);
         m.pop();
-        if (isFun()) {
+        if (isFriends()) {
+            Hud.text(ctx, tr("friends.subtitle", "Friends, requests, chat and the help button"), lx, wy + 27, Ui.TEXT_DIM);
+        } else if (isFun()) {
             Hud.text(ctx, tr("fun.subtitle", "Try your luck. Red is not your color."), lx, wy + 27, Ui.TEXT_DIM);
         } else if (isConfigs()) {
             if (status != null) Hud.text(ctx, status, lx, wy + 27, statusColor);
@@ -852,6 +869,10 @@ public class ClickGuiScreen extends Screen {
                 }
             }
         }
+        if (isFriends()) {
+            friends.click(mx, my, button);
+            return true;
+        }
         if (isFun()) {
             if (button == 0) fun.click(mx, my);
             return true;
@@ -966,6 +987,10 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double horizontal, double vertical) {
+        if (isFriends() && mx >= lx - 6 && mx <= lx + lw + 6) {
+            friends.scroll(vertical);
+            return true;
+        }
         if (mx >= lx - 6 && mx <= lx + lw + 6) {
             scrollTarget -= (float) (vertical * 26);
             clampScroll();
@@ -987,6 +1012,13 @@ public class ClickGuiScreen extends Screen {
             listening = null;
             ModuleManager.save();
             return true;
+        }
+        if (isFriends()) {
+            if (friends.keyPressed(keyCode, scanCode, modifiers)) return true;
+            if (FriendChat.friendsKey != null && FriendChat.friendsKey.matchesKey(keyCode, scanCode) && friends.idle()) {
+                close();
+                return true;
+            }
         }
         if (!isConfigs() && searchField != null && searchField.isFocused()) {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
@@ -1021,6 +1053,7 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     public boolean charTyped(char chr, int modifiers) {
+        if (isFriends() && friends.charTyped(chr, modifiers)) return true;
         if (!isConfigs() && searchField != null && searchField.isFocused()) {
             boolean ok = searchField.charTyped(chr, modifiers);
             setQuery(searchField.getText());

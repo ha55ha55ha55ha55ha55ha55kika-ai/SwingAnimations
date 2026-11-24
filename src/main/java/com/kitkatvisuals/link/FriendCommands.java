@@ -33,6 +33,26 @@ final class FriendCommands {
             return 1;
         }));
 
+        d.register(literal("kk")
+                .executes(ctx -> {
+                    FriendChat.openLater(mc(), null);
+                    return 1;
+                })
+                .then(literal("sos").executes(ctx -> {
+                    FriendChat.sendHelp(mc());
+                    return 1;
+                }))
+                .then(argument("nick", StringArgumentType.word()).suggests(FRIENDS)
+                        .executes(ctx -> {
+                            FriendChat.openLater(mc(), StringArgumentType.getString(ctx, "nick"));
+                            return 1;
+                        })
+                        .then(argument("text", StringArgumentType.greedyString()).executes(ctx -> {
+                            FriendChat.quickSend(mc(), StringArgumentType.getString(ctx, "nick"),
+                                    StringArgumentType.getString(ctx, "text"));
+                            return 1;
+                        }))));
+
         d.register(literal("friend")
                 .executes(ctx -> {
                     usage();
@@ -96,6 +116,8 @@ final class FriendCommands {
                 "/friend list           список друзей",
                 "/friend mark [текст]   поставить метку (её видят друзья)",
                 "/friend unmark         убрать мои метки",
+                "/kk [ник] [текст]     чат с друзьями (без текста открывает окно; клавиша J)",
+                "/kk sos               позвать друзей на помощь (ник, сервер, анархия, координаты)",
                 "/pronoob               кто сейчас с визуалом, где и на каком сервере"
         };
         for (String l : lines) c.inGameHud.getChatHud().addMessage(Text.literal(" " + l).formatted(Formatting.GRAY));

@@ -901,5 +901,10 @@
   "kitkatvisuals.update.on": "[KitKat] Автообновление включено.",
   "kitkatvisuals.update.off": "[KitKat] Автообновление выключено.",
   "kitkatvisuals.setting.minimap.armor_stands": "Стойки для брони (выделены)",
-  "kitkatvisuals.setting.minimap.stand_edge": "Стойки за радиусом показывать на краю"
+  "kitkatvisuals.setting.minimap.stand_edge": "Стойки за радиусом показывать на краю",
+  "key.kitkatvisuals.chat_open": "Открыть КитКатГрам (чат с друзьями)",
+  "key.kitkatvisuals.chat_help": "КитКатГрам: позвать друзей на помощь",
+  "kitkatvisuals.cat.friends": "Друзья",
+  "kitkatvisuals.friends.subtitle": "Друзья, запросы, чат и кнопка «Помощь»",
+  "key.kitkatvisuals.friends_open": "Открыть вкладку «Друзья»"
 }

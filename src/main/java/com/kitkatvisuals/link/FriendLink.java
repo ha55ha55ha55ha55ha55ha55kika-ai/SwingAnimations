@@ -111,6 +111,7 @@ public final class FriendLink {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> FriendCommands.register(dispatcher));
         HudRenderCallback.EVENT.register((ctx, tickCounter) -> FriendHud.render(ctx));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> nextSyncAt = 0);
+        FriendChat.init();
     }
 
     // ---------------------------------------------------------------- доступ для HUD / модуля / команд
@@ -189,6 +190,7 @@ public final class FriendLink {
         if (now < nextSyncAt || syncBusy) return;
         JsonObject body = presence(c, true);
         if (body == null) return;
+        body.addProperty("chat_ack", FriendChat.lastSeq());   // подтверждаем реле, что сообщения чата до этого номера получены
         nextSyncAt = now + SYNC_MS + ThreadLocalRandom.current().nextInt(400);
         syncBusy = true;
         EXEC.execute(() -> {
@@ -291,6 +293,31 @@ public final class FriendLink {
         return new Resp(r.statusCode(), parsed);
     }
 
+    /** Отправка сообщения другу (для FriendChat). done получает HTTP-код; -1 реле недоступно, -2 реле не настроено. Вызывается НЕ в главном потоке. */
+    static void chatSend(MinecraftClient c, UUID to, String text, java.util.function.IntConsumer done) {
+        if (!linkReady()) {
+            done.accept(-2);
+            return;
+        }
+        JsonObject b = identity(c);
+        if (b == null) {
+            done.accept(-1);
+            return;
+        }
+        b.addProperty("to", to.toString());
+        b.addProperty("text", text);
+        EXEC.execute(() -> {
+            int code;
+            try {
+                code = send("POST", "/chat/send", b).status();
+            } catch (Exception e) {
+                KitKatVisualsClient.LOGGER.warn("FriendLink /chat/send: {}", e.toString());
+                code = -1;
+            }
+            done.accept(code);
+        });
+    }
+
     private static void async(MinecraftClient c, String method, String path, JsonObject body, Consumer<Resp> then) {
         EXEC.execute(() -> {
             try {
@@ -381,6 +408,7 @@ public final class FriendLink {
             friends = List.copyOf(fl);
             requests = List.copyOf(rl);
             marks = List.copyOf(ml);
+            FriendChat.onSync(c, arr(o, "chat"));
 
             List<JsonObject> notes = new ArrayList<>();
             for (JsonElement e : arr(o, "notices")) if (e.isJsonObject()) notes.add(e.getAsJsonObject());
@@ -658,7 +686,13 @@ public final class FriendLink {
     }
 
     // ---------------------------------------------------------------- чат
+    /** Последняя реплика мода про друзей: вкладка «Друзья» показывает её в строке статуса. */
+    public static volatile String lastSay = "";
+    public static volatile long lastSayAt = 0;
+
     public static void say(MinecraftClient c, Text t) {
+        lastSay = t.getString();
+        lastSayAt = System.currentTimeMillis();
         c.execute(() -> {
             if (c.inGameHud == null) return;
             c.inGameHud.getChatHud().addMessage(Text.literal("[KitKat] ").formatted(Formatting.LIGHT_PURPLE).append(t));

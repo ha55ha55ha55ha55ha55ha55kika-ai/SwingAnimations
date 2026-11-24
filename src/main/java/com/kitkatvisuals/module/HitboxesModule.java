@@ -2,7 +2,9 @@ package com.kitkatvisuals.module;
 
 import com.kitkatvisuals.gui.Ui;
 import com.kitkatvisuals.render.Batch;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
@@ -69,25 +71,62 @@ public final class HitboxesModule extends Module {
     private final Setting.Bool eyeLine = add(new Setting.Bool("eye_line", "Eye height line", false));
     private final Setting.Bool lookLine = add(new Setting.Bool("look_line", "Look direction line", false));
     private final Setting.Bool own = add(new Setting.Bool("own", "Own hitbox (third person)", false));
-    private final Setting.Bool hideVanilla = add(new Setting.Bool("hide_vanilla", "Hide vanilla hitboxes (F3+B)", true));
+    private final Setting.Bool hideVanilla = add(new Setting.Bool("hide_vanilla", "Replace vanilla hitboxes (F3+B)", true));
     private final Setting.Str friendList = add(new Setting.Str("friend_list", "Friends list", ""));
 
     private final Set<String> friendSet = new HashSet<>();
     private String friendSrc = null;
 
+    /** true: ванильные хитбоксы мы удерживаем выключенными и сами помним, включил ли их игрок через F3+B. */
+    private boolean forcing;
+    private boolean wantF3B;
+
     public HitboxesModule() {
         super("hitboxes", "Hitboxes", "render");
+        // до отрисовки сущностей в каждом кадре: ванильные коробки не успевают мигнуть
+        WorldRenderEvents.START.register(ctx -> syncVanilla(MinecraftClient.getInstance()));
     }
 
     @Override
     public boolean wantsWorldRender() { return true; }
 
-    /** Пока модуль включён, ванильные хитбоксы (F3+B) не рисуем: вместо них наши, без лишних линий. */
+    /**
+     * Наши хитбоксы показываются, только когда игрок включил ванильные F3+B. Чтобы вместо ванильных рисовались наши,
+     * ванильный флаг удерживается выключенным, а нажатие F3+B (флаг стал true) считается переключением «хочу видеть».
+     */
     @Override
     public void tick(MinecraftClient mc) {
-        if (hideVanilla.value && mc.getEntityRenderDispatcher() != null) {
-            mc.getEntityRenderDispatcher().setRenderHitboxes(false);
+        syncVanilla(mc);
+    }
+
+    @Override
+    public void onDisable() {
+        syncVanilla(MinecraftClient.getInstance()); // вернуть игроку его состояние F3+B
+    }
+
+    private void syncVanilla(MinecraftClient mc) {
+        EntityRenderDispatcher d = mc == null ? null : mc.getEntityRenderDispatcher();
+        if (d == null) return;
+        if (isEnabled() && hideVanilla.value) {
+            if (!forcing) {
+                forcing = true;
+                wantF3B = d.shouldRenderHitboxes();
+                d.setRenderHitboxes(false);
+            } else if (d.shouldRenderHitboxes()) {
+                wantF3B = !wantF3B;
+                d.setRenderHitboxes(false);
+            }
+        } else if (forcing) {
+            forcing = false;
+            d.setRenderHitboxes(wantF3B);
         }
+    }
+
+    /** Включены ли хитбоксы по F3+B (с учётом того, что ванильный флаг мы можем удерживать выключенным). */
+    private boolean f3bOn(MinecraftClient mc) {
+        if (forcing) return wantF3B;
+        EntityRenderDispatcher d = mc.getEntityRenderDispatcher();
+        return d != null && d.shouldRenderHitboxes();
     }
 
     // ---------------- друзья ----------------
@@ -130,7 +169,7 @@ public final class HitboxesModule extends Module {
     @Override
     public void render(RenderContext c) {
         MinecraftClient mc = c.mc;
-        if (mc.world == null || mc.player == null) return;
+        if (mc.world == null || mc.player == null || !f3bOn(mc)) return;
         Vec3d cam = c.camera.getPos();
         double r2 = (double) range.value * range.value;
         float op = opacity.value;

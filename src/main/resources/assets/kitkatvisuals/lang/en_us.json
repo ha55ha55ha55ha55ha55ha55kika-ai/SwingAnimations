@@ -705,5 +705,10 @@
   "kitkatvisuals.update.on": "[KitKat] Auto-update enabled.",
   "kitkatvisuals.update.off": "[KitKat] Auto-update disabled.",
   "kitkatvisuals.setting.minimap.armor_stands": "Armor stands (highlighted)",
-  "kitkatvisuals.setting.minimap.stand_edge": "Armor stands beyond range at the edge"
+  "kitkatvisuals.setting.minimap.stand_edge": "Armor stands beyond range at the edge",
+  "key.kitkatvisuals.chat_open": "Open KitKatGram (friend chat)",
+  "key.kitkatvisuals.chat_help": "KitKatGram: call friends for help",
+  "kitkatvisuals.cat.friends": "Friends",
+  "kitkatvisuals.friends.subtitle": "Friends, requests, chat and the help button",
+  "key.kitkatvisuals.friends_open": "Open the Friends tab"
 }

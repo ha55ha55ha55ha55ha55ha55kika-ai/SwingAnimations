@@ -34,7 +34,7 @@ MAX_SERVERS = 200
 MAX_PER_SERVER = 500
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 NAME_RE = re.compile(r"^[A-Za-z0-9_.]{1,32}$")
-VERSION = 3
+VERSION = 4
 # Косметика: "id=1,размер,x,y,z;id2=1,..." (только надетые предметы). Лимиты те же, что в клиенте (CosmeticState).
 COS_ID_RE = re.compile(r"^[a-z0-9_]{1,40}$")
 COS_MAX_ITEMS = 16
@@ -62,6 +62,13 @@ MAX_MARKS = 8
 MAX_REQS_PER_TARGET = 20
 MAX_NOTICES = 20
 MAX_PRESENCE = 5000
+# --- Чат между друзьями (v4): реле работает как почтовый ящик, историю хранит клиент ---
+CHAT_DB = os.environ.get("CHAT_DB") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_inbox.json")
+CHAT_MAX_LEN = 300       # символов в сообщении
+CHAT_MAX_INBOX = 200     # недоставленных сообщений на человека
+CHAT_KEEP = 7 * 86400    # недоставленное сообщение живёт 7 дней
+CHAT_SEQ = int(time.time() * 1000)   # растёт всегда, в том числе после перезапуска реле
+CHAT = {}       # uuid получателя -> [{seq, from, name, text, ts}]   (хранится в файле, пока не доставлено)
 FRIENDS = {}    # uuid -> {uuid друга: последний известный ник}   (хранится в файле)
 PRESENCE = {}   # uuid -> {uuid, name, server, dim, share, x, y, z, ts}
 REQS = {}       # uuid получателя -> {uuid отправителя: {name, ts}}
@@ -99,6 +106,50 @@ def save_friends():
         os.replace(tmp, FRIENDS_DB)
     except OSError as e:
         print("  (не удалось сохранить %s: %s)" % (FRIENDS_DB, e))
+
+
+def load_chat():
+    global CHAT_SEQ
+    try:
+        with open(CHAT_DB, encoding="utf-8") as f:
+            data = json.load(f)
+        for u, lst in data.items():
+            if UUID_RE.match(u) and isinstance(lst, list):
+                CHAT[u] = [m for m in lst if isinstance(m, dict) and isinstance(m.get("seq"), int)]
+                for m in CHAT[u]:
+                    CHAT_SEQ = max(CHAT_SEQ, m["seq"])
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print("  (не удалось прочитать %s: %s; начинаю с пустого ящика)" % (CHAT_DB, e))
+
+
+def save_chat():
+    try:
+        tmp = CHAT_DB + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(CHAT, f, ensure_ascii=False)
+        os.replace(tmp, CHAT_DB)
+    except OSError as e:
+        print("  (не удалось сохранить %s: %s)" % (CHAT_DB, e))
+
+
+def clean_chat(s):
+    s = "".join(ch for ch in str(s) if (ord(ch) >= 32 or ch == " ") and ch != "\u00a7" and ord(ch) != 127)
+    return s.strip()[:CHAT_MAX_LEN]
+
+
+def purge_chat(now):
+    changed = False
+    for u in list(CHAT):
+        keep = [m for m in CHAT[u] if now - m["ts"] <= CHAT_KEEP]
+        if len(keep) != len(CHAT[u]):
+            changed = True
+        if keep:
+            CHAT[u] = keep
+        else:
+            del CHAT[u]
+    return changed
 
 
 def purge_friends(now):
@@ -337,7 +388,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._do_diary(now)
         routes = {"/sync": self._do_sync, "/friend/request": self._do_friend_request,
                   "/friend/respond": self._do_friend_respond, "/friend/remove": self._do_friend_remove,
-                  "/mark": self._do_mark, "/mark/clear": self._do_mark_clear}
+                  "/mark": self._do_mark, "/mark/clear": self._do_mark_clear,
+                  "/chat/send": self._do_chat_send}
         if path in routes:
             return routes[path](now)
         return self._send(404)
@@ -454,7 +506,22 @@ class Handler(BaseHTTPRequestHandler):
                         marks.append({"id": m["id"], "owner": owner, "owner_name": m["owner_name"], "server": m["server"],
                                       "dim": m["dim"], "x": m["x"], "y": m["y"], "z": m["z"], "label": m["label"]})
             notices = NOTICES.pop(uid, [])
-        self._send(200, {"friends": friends, "requests": requests, "marks": marks, "notices": notices})
+            try:
+                ack = int(o.get("chat_ack", 0))
+            except (TypeError, ValueError):
+                ack = 0
+            chat = []
+            box = CHAT.get(uid)
+            if box:
+                if ack > 0:                              # клиент подтвердил всё до ack включительно: удаляем
+                    box[:] = [m for m in box if m["seq"] > ack]
+                    if not box:
+                        del CHAT[uid]
+                    save_chat()
+                    box = CHAT.get(uid, [])
+                chat = [{"seq": m["seq"], "from": m["from"], "name": m["name"], "text": m["text"],
+                         "age": int(now - m["ts"])} for m in box if m["from"] in my_friends]
+        self._send(200, {"friends": friends, "requests": requests, "marks": marks, "notices": notices, "chat": chat})
 
     def _do_friend_request(self, now):
         o = self._json()
@@ -584,6 +651,33 @@ class Handler(BaseHTTPRequestHandler):
             MARKS.pop(ident[0], None)
         self._send(200, {"status": "cleared"})
 
+    def _do_chat_send(self, now):
+        global CHAT_SEQ
+        o = self._json()
+        if o is None:
+            return
+        ident = parse_ident(o)
+        to = str(o.get("to", "")).lower()
+        text = clean_chat(o.get("text", ""))
+        if ident is None or not UUID_RE.match(to) or not text:
+            return self._send(400)
+        uid, name = ident
+        with LOCK:
+            if rate("chat", uid, now, 8) or rate("chatip", self._ip(), now, 60):
+                return self._send(429, {"status": "slow"})
+            if to not in FRIENDS.get(uid, {}) or uid not in FRIENDS.get(to, {}):
+                return self._send(403, {"status": "not_friends"})
+            box = CHAT.setdefault(to, [])
+            CHAT_SEQ += 1
+            box.append({"seq": CHAT_SEQ, "from": uid, "name": name, "text": text, "ts": now})
+            del box[:-CHAT_MAX_INBOX]
+            purge_chat(now)
+            save_chat()
+            p = PRESENCE.get(to)
+            on = p is not None and now - p["ts"] <= PRESENCE_TTL
+            srv = p["server"] if on else ""
+        self._send(200, {"status": "sent", "online": on, "server": srv})
+
     def _do_online(self, now):
         with LOCK:
             if rate("syncip", self._ip(), now, 300):
@@ -603,7 +697,7 @@ class Handler(BaseHTTPRequestHandler):
         now = time.time()
         u = urlparse(self.path)
         if u.path == "/":
-            return self._send(200, {"ok": True, "service": "swing-relay", "version": VERSION, "features": ["cosmetics", "diary", "friends"]})  # проверка, что сервис жив
+            return self._send(200, {"ok": True, "service": "swing-relay", "version": VERSION, "features": ["cosmetics", "diary", "friends", "chat"]})  # проверка, что сервис жив
         if not self._auth():
             return self._send(403)
         if u.path == "/online":
@@ -622,6 +716,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     TOKEN = load_token()
     load_friends()
+    load_chat()
     httpd = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)   # порт занят или закрыт: ошибка видна сразу
     print_banner(detect_public_url(), TOKEN)
     httpd.serve_forever()

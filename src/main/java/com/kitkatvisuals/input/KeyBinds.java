@@ -35,6 +35,7 @@ public final class KeyBinds {
     public static KeyBinding MINIMAP_ZOOM_OUT;
     public static KeyBinding MINIMAP_MARK;
     public static KeyBinding MINIMAP_UNMARK;
+    public static KeyBinding RECORD;
     private static boolean freeLookDown;
 
     private KeyBinds() {}
@@ -61,6 +62,7 @@ public final class KeyBinds {
         MINIMAP_ZOOM_OUT = reg("minimap_zoom_out", GLFW.GLFW_KEY_LEFT_BRACKET);
         MINIMAP_MARK = reg("minimap_mark", GLFW.GLFW_KEY_B);
         MINIMAP_UNMARK = reg("minimap_unmark", GLFW.GLFW_KEY_UNKNOWN);
+        RECORD = reg("record", GLFW.GLFW_KEY_UNKNOWN); // назначается игроком в «Управлении»
         FREE_LOOK = reg("free_look", GLFW.GLFW_KEY_UNKNOWN);  // обычная клавиша управления: работает и на Android (Pojav)
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
         ClientTickEvents.START_CLIENT_TICK.register(KeyBinds::lockSlotGuards);
@@ -127,6 +129,10 @@ public final class KeyBinds {
         while (LOCK.wasPressed()) {
             com.kitkatvisuals.module.LockSlotModule ls = com.kitkatvisuals.module.ModuleManager.lockSlot;
             if (ls != null && ls.isEnabled() && mc.currentScreen == null && mc.player != null) ls.toggleSelected(mc);
+        }
+        while (RECORD.wasPressed()) {
+            com.kitkatvisuals.module.RecordModule rm = com.kitkatvisuals.module.ModuleManager.recorder;
+            if (rm != null) rm.toggle();
         }
         crosshairKeys(mc);
         freeLookKey(mc);
