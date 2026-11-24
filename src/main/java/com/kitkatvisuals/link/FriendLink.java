@@ -60,7 +60,7 @@ public final class FriendLink {
     public record Request(UUID from, String name, long expiresAt) {}
     public record Mark(String id, UUID owner, String ownerName, String server, String dim,
                        double x, double y, double z, String label, boolean mine) {}
-    public record Online(String name, UUID id, String server, String dim, boolean coords, int x, int y, int z) {}
+    public record Online(String name, UUID id, String server, String dim, boolean coords, int x, int y, int z, String anarchy) {}
 
     private record Resp(int status, JsonElement body) {}
 
@@ -591,7 +591,7 @@ public final class FriendLink {
             try {
                 boolean coords = bool(o, "coords");
                 list.add(new Online(str(o, "name"), UUID.fromString(str(o, "uuid")), str(o, "server"), str(o, "dim"), coords,
-                        (int) num(o, "x"), (int) num(o, "y"), (int) num(o, "z")));
+                        (int) num(o, "x"), (int) num(o, "y"), (int) num(o, "z"), str(o, "anarchy")));
             } catch (IllegalArgumentException ignored) {
             }
         }
@@ -626,6 +626,7 @@ public final class FriendLink {
                 for (Friend f : friends) if (f.id().equals(o.id())) isFriend = true;
                 MutableText line = Text.literal("   " + o.name()).formatted(isMe ? Formatting.YELLOW : isFriend ? Formatting.GREEN : Formatting.WHITE);
                 if (isMe) line.append(Text.literal(" (ты)").formatted(Formatting.GRAY));
+                if (!o.anarchy().isEmpty()) line.append(Text.literal("  " + o.anarchy()).formatted(Formatting.LIGHT_PURPLE));
                 if (o.coords()) {
                     String xyz = o.x() + " " + o.y() + " " + o.z();
                     line.append(Text.literal("  " + xyz).setStyle(Style.EMPTY.withColor(Formatting.GOLD)

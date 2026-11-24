@@ -688,7 +688,8 @@ class Handler(BaseHTTPRequestHandler):
             for p in sorted(PRESENCE.values(), key=lambda p: (p["server"], p["name"].lower())):
                 if now - p["ts"] > PRESENCE_TTL:
                     continue
-                e = {"name": p["name"], "uuid": p["uuid"], "server": p["server"], "dim": p["dim"], "coords": bool(p["share"])}
+                e = {"name": p["name"], "uuid": p["uuid"], "server": p["server"], "dim": p["dim"], "coords": bool(p["share"]),
+                     "anarchy": p.get("anarchy", "")}
                 if p["share"]:
                     e.update({"x": int(p["x"]), "y": int(p["y"]), "z": int(p["z"])})
                 out.append(e)
