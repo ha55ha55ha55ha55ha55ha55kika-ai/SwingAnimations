@@ -54,6 +54,8 @@ public final class ModuleManager {
     public static HitboxesModule hitboxes;
     public static GlowHandModule glowHand;
     public static EventHudModule eventHud;
+    public static NotesModule notes;
+    public static MarksModule marks;
     public static MusicModule music;
     public static ClientLinkModule clientLink;
     public static DeathMarkerModule deathMarker;
@@ -117,6 +119,10 @@ public final class ModuleManager {
         MODULES.add(new InterfaceModule());
         MODULES.add(new TargetHudModule());
         MODULES.add(new CooldownsModule());
+        notes = new NotesModule();
+        MODULES.add(notes);
+        marks = new MarksModule();
+        MODULES.add(marks);
         MODULES.add(new NotificationsModule());
         MODULES.add(new EquipmentWarningsModule());
         MODULES.add(new TntTimerModule());

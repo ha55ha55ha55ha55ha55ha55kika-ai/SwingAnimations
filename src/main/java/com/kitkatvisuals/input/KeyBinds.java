@@ -36,6 +36,9 @@ public final class KeyBinds {
     public static KeyBinding MINIMAP_MARK;
     public static KeyBinding MINIMAP_UNMARK;
     public static KeyBinding RECORD;
+    public static KeyBinding NOTES;
+    public static KeyBinding MARKS_OPEN;
+    public static KeyBinding MARKS_HERE;
     private static boolean freeLookDown;
 
     private KeyBinds() {}
@@ -62,6 +65,9 @@ public final class KeyBinds {
         MINIMAP_ZOOM_OUT = reg("minimap_zoom_out", GLFW.GLFW_KEY_LEFT_BRACKET);
         MINIMAP_MARK = reg("minimap_mark", GLFW.GLFW_KEY_B);
         MINIMAP_UNMARK = reg("minimap_unmark", GLFW.GLFW_KEY_UNKNOWN);
+        MARKS_OPEN = reg("marks_open", GLFW.GLFW_KEY_G); // список меток (модуль «Метки» должен быть включён)
+        MARKS_HERE = reg("marks_here", GLFW.GLFW_KEY_H); // поставить метку там, где стоите
+        NOTES = reg("notes", GLFW.GLFW_KEY_J); // открыть редактор заметок (работает, если модуль «Заметки» включён)
         RECORD = reg("record", GLFW.GLFW_KEY_UNKNOWN); // назначается игроком в «Управлении»
         FREE_LOOK = reg("free_look", GLFW.GLFW_KEY_UNKNOWN);  // обычная клавиша управления: работает и на Android (Pojav)
         ClientTickEvents.END_CLIENT_TICK.register(KeyBinds::tick);
@@ -133,6 +139,18 @@ public final class KeyBinds {
         while (RECORD.wasPressed()) {
             com.kitkatvisuals.module.RecordModule rm = com.kitkatvisuals.module.ModuleManager.recorder;
             if (rm != null) rm.toggle();
+        }
+        while (NOTES.wasPressed()) {
+            com.kitkatvisuals.module.NotesModule nm = com.kitkatvisuals.module.ModuleManager.notes;
+            if (nm != null && nm.isEnabled() && mc.currentScreen == null && mc.player != null) nm.openEditor();
+        }
+        while (MARKS_OPEN.wasPressed()) {
+            com.kitkatvisuals.module.MarksModule mk = com.kitkatvisuals.module.ModuleManager.marks;
+            if (mk != null && mk.isEnabled() && mc.currentScreen == null && mc.player != null) mk.openList();
+        }
+        while (MARKS_HERE.wasPressed()) {
+            com.kitkatvisuals.module.MarksModule mk = com.kitkatvisuals.module.ModuleManager.marks;
+            if (mk != null && mk.isEnabled() && mc.currentScreen == null && mc.player != null) mk.addHere(mc);
         }
         crosshairKeys(mc);
         freeLookKey(mc);
