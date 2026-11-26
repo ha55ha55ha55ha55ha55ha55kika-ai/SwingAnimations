@@ -220,13 +220,18 @@ public final class CosmeticsModule extends Module {
         for (CosmeticModel cm : CosmeticModel.all()) {
             CosmeticState s = st.get(cm.id);
             if (s == null || !s.equipped) continue;
+            float[] q = cm.quads;
+            if (cm.animated()) {                                    // у каждого игрока своя фаза, чтобы крылья не хлопали синхронно
+                float phase = ((p.getUuid().hashCode() & 0x7fffffff) % 1000) / 1000f * cm.animLen;
+                q = cm.pose((mc.world.getTime() + c.tickDelta) / 20f + phase);
+            }
             RenderLayer main = RenderLayer.getEntityCutoutNoCull(cm.texture);
             VertexConsumer vc = vcp.getBuffer(main);
-            CosmeticMesh.emit(vc, m, cm.quads, cm.ax, cm.ay, cm.az, s.scale, s.ox, s.oy, s.oz, light, false, false);
+            CosmeticMesh.emit(vc, m, q, cm.ax, cm.ay, cm.az, s.scale, s.ox, s.oy, s.oz, light, false, false);
             vcp.draw(main);
             if (cm.glow != null) {
                 RenderLayer glow = RenderLayer.getEyes(cm.glow);
-                CosmeticMesh.emit(vcp.getBuffer(glow), m, cm.quads, cm.ax, cm.ay, cm.az, s.scale, s.ox, s.oy, s.oz, 0xF000F0, false, false);
+                CosmeticMesh.emit(vcp.getBuffer(glow), m, q, cm.ax, cm.ay, cm.az, s.scale, s.ox, s.oy, s.oz, 0xF000F0, false, false);
                 vcp.draw(glow);
             }
         }

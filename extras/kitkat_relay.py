@@ -34,7 +34,7 @@ MAX_SERVERS = 200
 MAX_PER_SERVER = 500
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 NAME_RE = re.compile(r"^[A-Za-z0-9_.]{1,32}$")
-VERSION = 5
+VERSION = 6
 # Косметика: "id=1,размер,x,y,z;id2=1,..." (только надетые предметы). Лимиты те же, что в клиенте (CosmeticState).
 COS_ID_RE = re.compile(r"^[a-z0-9_]{1,40}$")
 COS_MAX_ITEMS = 16
@@ -215,6 +215,26 @@ def fnum(o, k):
 def clean(s):
     s = "".join(ch for ch in str(s) if ord(ch) >= 32 and ch != "\u00a7" and ord(ch) != 127)
     return s.strip()[:80]
+
+
+_SLD = {"co", "com", "org", "net", "gov", "edu", "ac"}
+
+
+def net_key(server):
+    """Сеть серверов по адресу: mc.holyworld.me и neo.holyworld.ru -> "holyworld" (должно совпадать с Network.key в моде).
+    IP-адреса (вместе с портом) не склеиваются."""
+    h = str(server).lower().strip()
+    if h.startswith("["):
+        return h
+    host = h.rsplit(":", 1)[0] if re.search(r":\d+$", h) else h
+    if re.match(r"^[0-9.]+$", host):
+        return h
+    parts = [x for x in host.split(".") if x]
+    if len(parts) >= 3 and len(parts[-1]) == 2 and parts[-2] in _SLD:
+        return parts[-3]
+    if len(parts) >= 2:
+        return parts[-2]
+    return host
 
 
 def sanitize_cosmetics(raw):
@@ -503,9 +523,10 @@ class Handler(BaseHTTPRequestHandler):
             marks = []
             for owner in [uid] + list(my_friends):
                 for m in MARKS.get(owner, []):
-                    if m["server"] == server:
+                    if net_key(m["server"]) == net_key(server):      # одна сеть (разные адреса одного проекта) считается одним сервером
                         marks.append({"id": m["id"], "owner": owner, "owner_name": m["owner_name"], "server": m["server"],
-                                      "dim": m["dim"], "x": m["x"], "y": m["y"], "z": m["z"], "label": m["label"]})
+                                      "dim": m["dim"], "anarchy": m.get("anarchy", ""), "x": m["x"], "y": m["y"], "z": m["z"],
+                                      "label": m["label"]})
             notices = NOTICES.pop(uid, [])
             try:
                 ack = int(o.get("chat_ack", 0))
@@ -629,6 +650,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400)
         uid, name = ident
         mark = {"id": secrets.token_hex(4), "owner_name": name, "server": server, "dim": clean(o.get("dim", ""))[:60],
+                "anarchy": clean(o.get("anarchy", ""))[:30],
                 "x": max(-3e7, min(3e7, fnum(o, "x"))), "y": max(-4096.0, min(4096.0, fnum(o, "y"))),
                 "z": max(-3e7, min(3e7, fnum(o, "z"))), "label": clean(o.get("label", ""))[:40], "ts": now}
         with LOCK:

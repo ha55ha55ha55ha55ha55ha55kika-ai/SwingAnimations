@@ -195,12 +195,14 @@ public final class WardrobeScreen extends Screen {
         System.arraycopy(outer, 0, body, base.length, outer.length);
         groups.add(new Group(CosmeticMesh.center(m, body, 0, 0, 0, 1f, 0, 0, 0)[2], () ->
                 CosmeticMesh.emit(vcp.getBuffer(RenderLayer.getEntityTranslucentEmissive(skinTex)), m, body, 0, 0, 0, 1f, 0, 0, 0, FULL_LIGHT, true, true)));
+        float animT = (System.currentTimeMillis() % 3_600_000L) / 1000f;
         for (CosmeticModel cm : items) {
             CosmeticState st = module.state(cm);
             if (!st.equipped) continue;
-            float depth = CosmeticMesh.center(m, cm.quads, cm.ax, cm.ay, cm.az, st.scale, st.ox, st.oy, st.oz)[2];
+            float[] q = cm.animated() ? cm.poseCopy(animT) : cm.quads;      // крылья в превью тоже машут
+            float depth = CosmeticMesh.center(m, q, cm.ax, cm.ay, cm.az, st.scale, st.ox, st.oy, st.oz)[2];
             groups.add(new Group(depth, () -> {
-                CosmeticMesh.emit(vcp.getBuffer(RenderLayer.getEntityTranslucentEmissive(cm.texture)), m, cm.quads, cm.ax, cm.ay, cm.az,
+                CosmeticMesh.emit(vcp.getBuffer(RenderLayer.getEntityTranslucentEmissive(cm.texture)), m, q, cm.ax, cm.ay, cm.az,
                         st.scale, st.ox, st.oy, st.oz, FULL_LIGHT, true, true);
                 vcp.draw();
             }));

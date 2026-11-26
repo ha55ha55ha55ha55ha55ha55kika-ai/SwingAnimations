@@ -59,7 +59,7 @@ public final class FriendLink {
     public record Friend(UUID id, String name, boolean online, String server, String anarchy) {}
     public record Request(UUID from, String name, long expiresAt) {}
     public record Mark(String id, UUID owner, String ownerName, String server, String dim,
-                       double x, double y, double z, String label, boolean mine) {}
+                       double x, double y, double z, String label, boolean mine, String anarchy) {}
     public record Online(String name, UUID id, String server, String dim, boolean coords, int x, int y, int z, String anarchy) {}
 
     private record Resp(int status, JsonElement body) {}
@@ -130,15 +130,20 @@ public final class FriendLink {
         return Math.max(0f, Math.min(1f, (r.expiresAt() - System.currentTimeMillis()) / (REQ_TTL_S * 1000f)));
     }
 
-    /** Метки на текущем сервере и в текущем измерении (свои и друзей). */
+    /** Метки той же сети серверов, того же измерения и (если известна) той же анархии: свои и друзей. */
     public static List<Mark> marksHere(MinecraftClient c) {
         if (c.world == null) return List.of();
         String server = serverKey(c);
         String dim = dimKey(c);
         if (server.isEmpty()) return List.of();
+        String anarchy = com.kitkatvisuals.util.AnarchyDetector.label(c);
         List<Mark> out = new ArrayList<>();
         for (Mark m : marks) {
-            if (m.server().equalsIgnoreCase(server) && (m.dim().isEmpty() || m.dim().equals(dim))) out.add(m);
+            boolean sameNet = Network.same(m.server(), server);
+            boolean sameDim = m.dim().isEmpty() || m.dim().equals(dim);
+            // координаты имеют смысл только в одном мире: если анархия известна с обеих сторон, она должна совпасть
+            boolean sameWorld = m.anarchy().isEmpty() || anarchy.isEmpty() || m.anarchy().equalsIgnoreCase(anarchy);
+            if (sameNet && sameDim && sameWorld) out.add(m);
         }
         return out;
     }
@@ -403,7 +408,7 @@ public final class FriendLink {
                 JsonObject m = e.getAsJsonObject();
                 UUID owner = UUID.fromString(str(m, "owner"));
                 ml.add(new Mark(str(m, "id"), owner, str(m, "owner_name"), str(m, "server"), str(m, "dim"),
-                        num(m, "x"), num(m, "y"), num(m, "z"), str(m, "label"), owner.equals(me)));
+                        num(m, "x"), num(m, "y"), num(m, "z"), str(m, "label"), owner.equals(me), str(m, "anarchy")));
             }
 
             friends = List.copyOf(fl);
@@ -626,7 +631,10 @@ public final class FriendLink {
                 for (Friend f : friends) if (f.id().equals(o.id())) isFriend = true;
                 MutableText line = Text.literal("   " + o.name()).formatted(isMe ? Formatting.YELLOW : isFriend ? Formatting.GREEN : Formatting.WHITE);
                 if (isMe) line.append(Text.literal(" (ты)").formatted(Formatting.GRAY));
-                if (!o.anarchy().isEmpty()) line.append(Text.literal("  " + o.anarchy()).formatted(Formatting.LIGHT_PURPLE));
+                String an = o.anarchy();
+                if (an.isEmpty() && isMe) an = com.kitkatvisuals.util.AnarchyDetector.label(c);   // про себя знаем и без реле
+                line.append(an.isEmpty() ? Text.literal("  анархия: ?").formatted(Formatting.DARK_GRAY)
+                                         : Text.literal("  " + an).formatted(Formatting.LIGHT_PURPLE));
                 if (o.coords()) {
                     String xyz = o.x() + " " + o.y() + " " + o.z();
                     line.append(Text.literal("  " + xyz).setStyle(Style.EMPTY.withColor(Formatting.GOLD)

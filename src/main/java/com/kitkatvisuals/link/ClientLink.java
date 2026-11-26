@@ -359,7 +359,7 @@ public final class ClientLink {
 
     private static String serverId(MinecraftClient mc) {
         ServerInfo si = mc.getCurrentServerEntry();
-        return si == null ? "" : normalizeServer(si.address);
+        return si == null ? "" : Network.key(normalizeServer(si.address));   // один ключ на все адреса сети (mc.holyworld.me = neo.holyworld.ru)
     }
 
     /** @return true, если запрос принят в работу (false: предыдущий ещё идёт). */
