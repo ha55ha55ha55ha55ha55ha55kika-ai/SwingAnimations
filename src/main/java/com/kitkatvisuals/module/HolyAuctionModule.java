@@ -172,10 +172,7 @@ public final class HolyAuctionModule extends Module {
         if (lot.price <= 0 || (r <= 0 && lot.coinSuffix <= 0)) return;
         lines.add(Text.literal(""));
         if (r > 0) lines.add(Text.literal("Курс: " + compact(Math.round(r))).formatted(Formatting.GRAY));
-        lines.add(Text.literal("Коины: " + coinText(lot.coins())).formatted(Formatting.GOLD));
-        if (lot.stack > 0 && r > 0) {
-            lines.add(Text.literal("Стак: " + compact(lot.stack) + " / " + coinText(Math.round(lot.stack / r))).formatted(Formatting.YELLOW));
-        }
+        lines.add(Text.literal("Коины: ").formatted(Formatting.GOLD).append(coinValue(lot.coins())));
     }
 
     private void addRegularLines(ItemStack stack, List<Text> lines) {
@@ -185,18 +182,14 @@ public final class HolyAuctionModule extends Module {
         ensureRate();
         double r = rate;
         if (r <= 0 || Double.isNaN(r) || Double.isInfinite(r)) return;
-        long stackPrice = 0;
         List<Text> orig = new ArrayList<>(lines);
         for (int i = 0; i < orig.size(); i++) {
             String raw = orig.get(i).getString();
             if (!PRICE_VALUE.matcher(raw).find() || hasCoinWord(raw)) continue;
             long price = priceOf(raw);
             if (price <= 0) continue;
-            lines.set(i, orig.get(i).copy().append(Text.literal(" (" + coinText(Math.round(price / r)) + ")").formatted(Formatting.GOLD)));
-            if (unitLine(raw) || stackPrice <= 0) stackPrice = stackPriceOf(raw, price, stack.getCount());
-        }
-        if (stackPrice > 0) {
-            lines.add(Text.literal("Цена за стак: " + fmt(stackPrice) + " (" + coinText(Math.round(stackPrice / r)) + ")").formatted(Formatting.YELLOW));
+            lines.set(i, orig.get(i).copy().append(Text.literal(" (").formatted(Formatting.GOLD))
+                    .append(coinValue(price / r)).append(Text.literal(")").formatted(Formatting.GOLD)));
         }
     }
 
@@ -217,13 +210,13 @@ public final class HolyAuctionModule extends Module {
 
         double rate() { return HolyAuctionModule.rate > 0 ? HolyAuctionModule.rate : course; }
 
-        long coins() {
+        double coins() {
             double r = rate();
             if (price <= 0) return 0;
             if (r <= 0) return coinSuffix;
-            long calc = Math.max(1, Math.round(price / r));
-            if (coinSuffix <= 0) return calc;
-            long tol = Math.max(2, Math.round(calc * 0.15));
+            double calc = price / r;
+            if (coinSuffix <= 0 || calc < 10) return calc; // дробные коины (0.13) считаем сами, без округления
+            double tol = Math.max(2, calc * 0.15);
             return Math.abs(calc - coinSuffix) <= tol ? coinSuffix : calc;
         }
     }
@@ -398,10 +391,25 @@ public final class HolyAuctionModule extends Module {
         return String.format(Locale.ROOT, "%,d", v).replace(',', ' ');
     }
 
+    /** Коины: большие числа целыми, маленькие с дробью (0.13); хвостовые нули убираем. */
     private static String coinText(double v) {
         if (v <= 0 || Double.isNaN(v) || Double.isInfinite(v)) return "-";
         if (v >= 100) return fmt(Math.round(v));
-        return v >= 10 ? String.format(Locale.ROOT, "%.1f", v) : String.format(Locale.ROOT, "%.2f", v);
+        String s;
+        if (v >= 10) s = String.format(Locale.ROOT, "%.1f", v);
+        else if (v >= 1) s = String.format(Locale.ROOT, "%.2f", v);
+        else if (v >= 0.01) s = String.format(Locale.ROOT, "%.2f", v);
+        else s = String.format(Locale.ROOT, "%.3f", Math.max(v, 0.001));
+        if (s.indexOf('.') >= 0) s = s.replaceAll("0+$", "").replaceAll("\\.$", "");
+        return s;
+    }
+
+    private static final Text COIN_ICON = Text.literal("\uE001")
+            .setStyle(net.minecraft.text.Style.EMPTY.withFont(com.kitkatvisuals.link.ClientLink.ICON_FONT).withColor(0xFFFFFF));
+
+    /** Значок коина HolyWorld и число рядом. */
+    private static Text coinValue(double v) {
+        return Text.empty().append(COIN_ICON).append(Text.literal(" " + coinText(v)).formatted(Formatting.GOLD));
     }
 
     // ------------------------------------------------------------------ особый компас

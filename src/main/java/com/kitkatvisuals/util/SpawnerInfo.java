@@ -53,6 +53,8 @@ public final class SpawnerInfo {
     public long killsTotal;
     public long killsRemaining;
     public int eggs;
+    /** Сколько мобов осталось в спавнере: gs_kills_remaining из custom_data (как в Spawner-HW); 0, если данных нет. */
+    public long mobCount;
 
     /** label != null: серверное (нестандартное) зачарование, показывается под своим названием. */
     public record Ench(String id, int level, String label) {
@@ -183,6 +185,7 @@ public final class SpawnerInfo {
         info.killsTotal = a.killsTotal;
         info.killsRemaining = a.killsRemaining;
         info.eggs = a.eggs;
+        info.mobCount = a.killsRemaining;
         return info;
     }
 

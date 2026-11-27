@@ -241,9 +241,16 @@ public final class SpawnerPanel {
         Ui.outline(ctx, mx0, my0, 58, 66, 4, Ui.OUTLINE);
         boolean drawn = drawMob(ctx, mx0, my0, 58, 66, info, mx, my);
         if (!drawn) Hud.text(ctx, "?", mx0 + 27, my0 + 28, Ui.TEXT_DIM);
+        if (info.killsTotal > 0L) {
+            String cntTxt = "x" + String.format(java.util.Locale.ROOT, "%,d", Math.max(0L, info.mobCount)).replace(',', ' ');
+            int cw = Hud.w(cntTxt) + 6;
+            Ui.rect(ctx, mx0 + 3, my0 + 3, cw, 11, 3, 0xAA000000);
+            Hud.text(ctx, cntTxt, mx0 + 6, my0 + 4, 0xFFFFD24A);
+        }
         List<Text> mobTip = new ArrayList<>();
         mobTip.add(Text.literal(info.mobName != null ? info.mobName : "Моб не определён").formatted(Formatting.YELLOW));
         if (info.mobId != null) mobTip.add(Text.literal(info.mobId).formatted(Formatting.DARK_GRAY));
+        if (info.killsTotal > 0L) mobTip.add(Text.literal("Мобов в спавнере: " + Math.max(0L, info.mobCount) + " / " + info.killsTotal).formatted(Formatting.GOLD));
         REGIONS.add(new Region(mx0, my0, 58, 66, null, mobTip));
 
         // меч

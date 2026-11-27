@@ -49,7 +49,7 @@ public final class Updater {
     /** Репозиторий GitHub, из релизов которого берутся обновления (только отсюда и только по HTTPS). */
     private static final String REPO = "ha55ha55ha55ha55ha55ha55kika-ai/SwingAnimations";
     private static final String MOD_ID = "kitkatvisuals";
-    private static final long CHECK_EVERY_MS = 60L * 60 * 1000;
+    private static final long CHECK_EVERY_MS = 10L * 60 * 1000;
     private static final long LOOP_EVERY_MS = 10L * 60 * 1000;
     private static final long MAX_JAR_BYTES = 64L * 1024 * 1024;
     private static final String UA = "KitKatVisuals-Updater/1.0 (Minecraft client mod)";
@@ -79,8 +79,10 @@ public final class Updater {
             } catch (InterruptedException e) {
                 return;
             }
+            boolean first = true;
             while (true) {
-                run(false);
+                run(false, first); // при запуске игры проверяем всегда, без ожидания
+                first = false;
                 try {
                     Thread.sleep(LOOP_EVERY_MS);
                 } catch (InterruptedException e) {
@@ -151,9 +153,13 @@ public final class Updater {
     // ---------- проверка и загрузка ----------
 
     public static Result run(boolean force) {
+        return run(force, force);
+    }
+
+    public static Result run(boolean force, boolean ignoreWait) {
         if (!BUSY.compareAndSet(false, true)) return Result.BUSY;
         try {
-            return check(force);
+            return check(force, ignoreWait);
         } catch (Exception e) {
             KitKatVisualsClient.LOGGER.warn("Updater: {}", e.toString());
             return Result.FAILED;
@@ -162,7 +168,7 @@ public final class Updater {
         }
     }
 
-    private static Result check(boolean force) throws Exception {
+    private static Result check(boolean force, boolean ignoreWait) throws Exception {
         Cfg cfg = loadCfg();
         if (!cfg.enabled && !force) return Result.DISABLED;
         Path jar = ownJar();
@@ -189,7 +195,7 @@ public final class Updater {
         String have = pendingVer != null ? pendingVer : current; // самая новая версия, что уже есть у игрока
 
         // ждём только если мы точно знаем, что новее ничего нет
-        boolean throttled = !force && System.currentTimeMillis() - cfg.last_check < CHECK_EVERY_MS
+        boolean throttled = !ignoreWait && System.currentTimeMillis() - cfg.last_check < CHECK_EVERY_MS
                 && compare(cfg.known_latest, have) <= 0;
         if (throttled) {
             if (pendingVer != null) {

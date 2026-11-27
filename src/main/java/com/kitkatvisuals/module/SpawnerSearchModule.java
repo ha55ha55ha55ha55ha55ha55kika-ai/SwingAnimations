@@ -82,6 +82,8 @@ public final class SpawnerSearchModule extends Module {
         if (i == null) return;
         lines.add(Text.literal("Внутри спавнера:").formatted(Formatting.GOLD));
         if (i.mobName != null) lines.add(Text.literal(" Моб: ").formatted(Formatting.GRAY).append(Text.literal(i.mobName).formatted(Formatting.YELLOW)));
+        if (i.killsTotal > 0L) lines.add(Text.literal(" Мобов в спавнере: ").formatted(Formatting.GRAY)
+                .append(Text.literal(spaced(Math.max(0L, i.mobCount)) + " / " + spaced(i.killsTotal)).formatted(Formatting.YELLOW)));
         if (i.swordName != null) {
             lines.add(Text.literal(" Меч: ").formatted(Formatting.GRAY).append(Text.literal(i.swordName).formatted(Formatting.AQUA)));
             if (i.enchants.isEmpty()) lines.add(Text.literal("  без зачарований").formatted(Formatting.DARK_GRAY));
