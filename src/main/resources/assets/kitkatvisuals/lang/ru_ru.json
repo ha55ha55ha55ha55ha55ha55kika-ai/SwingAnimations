@@ -928,5 +928,14 @@
   "kitkatvisuals.setting.marks.all_anarchies": "Показывать метки всех анархий",
   "kitkatvisuals.setting.marks.add_here": "Поставить метку здесь",
   "kitkatvisuals.setting.marks.open": "Открыть список меток",
-  "kitkatvisuals.tut.mod.marks": "Свои метки по координатам: луч, подпись и стрелка. Метка видна только на той анархии, где её поставили."
+  "kitkatvisuals.tut.mod.marks": "Свои метки по координатам: луч, подпись и стрелка. Метка видна только на той анархии, где её поставили.",
+  "kitkatvisuals.module.holy_auction": "HolyAuction",
+  "kitkatvisuals.tut.mod.holy_auction": "Помощник аукциона HolyWorld: цены лотов в коинах по живому курсу, подсветка лотов и яиц дракона и индикатор КД особого компаса (зелёный: КД нет).",
+  "kitkatvisuals.setting.holy_auction.coins": "Цены в коинах",
+  "kitkatvisuals.setting.holy_auction.compass": "КД особого компаса",
+  "kitkatvisuals.setting.holy_auction.lots": "Подсветка лотов (скоро конец, ставка, перебили)",
+  "kitkatvisuals.setting.holy_auction.cheapest": "Подсвечивать самый дешёвый лот",
+  "kitkatvisuals.setting.holy_auction.all_lots": "Подкрашивать остальные лоты",
+  "kitkatvisuals.setting.holy_auction.eggs": "Подсветка яиц дракона",
+  "kitkatvisuals.setting.holy_auction.egg_limit": "Яиц много от"
 }

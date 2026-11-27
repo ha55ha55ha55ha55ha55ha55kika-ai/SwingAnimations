@@ -35,6 +35,7 @@
     "PlayerListHudMixin",
     "ChatHudBadgeMixin",
     "HandledScreenSpawnerMixin",
+    "HandledScreenAuctionMixin",
     "OverlayTextureMixin",
     "ModelHitMixin",
     "ArmorFeatureRendererMixin",

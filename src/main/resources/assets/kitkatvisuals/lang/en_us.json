@@ -732,5 +732,14 @@
   "kitkatvisuals.setting.marks.all_anarchies": "Show marks from all anarchies",
   "kitkatvisuals.setting.marks.add_here": "Add mark here",
   "kitkatvisuals.setting.marks.open": "Open marks list",
-  "kitkatvisuals.tut.mod.marks": "Your own coordinate marks: beam, label and arrow. A mark is shown only on the anarchy where it was placed."
+  "kitkatvisuals.tut.mod.marks": "Your own coordinate marks: beam, label and arrow. A mark is shown only on the anarchy where it was placed.",
+  "kitkatvisuals.module.holy_auction": "HolyAuction",
+  "kitkatvisuals.tut.mod.holy_auction": "HolyWorld auction helper: lot prices in coins with the live coin rate, highlighted lots and dragon eggs, and a cooldown indicator for the special compass (green means no cooldown).",
+  "kitkatvisuals.setting.holy_auction.coins": "Prices in coins",
+  "kitkatvisuals.setting.holy_auction.compass": "Special compass cooldown",
+  "kitkatvisuals.setting.holy_auction.lots": "Highlight lots (expiring, bid, outbid)",
+  "kitkatvisuals.setting.holy_auction.cheapest": "Highlight cheapest lot",
+  "kitkatvisuals.setting.holy_auction.all_lots": "Tint all other lots",
+  "kitkatvisuals.setting.holy_auction.eggs": "Highlight dragon eggs",
+  "kitkatvisuals.setting.holy_auction.egg_limit": "Eggs: many from"
 }
