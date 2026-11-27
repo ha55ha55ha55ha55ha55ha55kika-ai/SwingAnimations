@@ -48,6 +48,7 @@ public final class ModuleManager {
     public static ClearLiquidsModule clearLiquids;
     public static NoFogModule noFog;
     public static HolyAuctionModule holyAuction;
+    public static MineHudModule mineHud;
     public static CustomFovModule customFov;
     public static ZoomModule zoom;
     public static CosmeticsModule cosmetics;
@@ -141,6 +142,8 @@ public final class ModuleManager {
         MODULES.add(noFog);
         holyAuction = new HolyAuctionModule();
         MODULES.add(holyAuction);
+        mineHud = new MineHudModule();
+        MODULES.add(mineHud);
         customFov = new CustomFovModule();
         MODULES.add(customFov);
         zoom = new ZoomModule();

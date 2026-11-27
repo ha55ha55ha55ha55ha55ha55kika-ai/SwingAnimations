@@ -741,5 +741,17 @@
   "kitkatvisuals.setting.holy_auction.cheapest": "Highlight cheapest lot",
   "kitkatvisuals.setting.holy_auction.all_lots": "Tint all other lots",
   "kitkatvisuals.setting.holy_auction.eggs": "Highlight dragon eggs",
-  "kitkatvisuals.setting.holy_auction.egg_limit": "Eggs: many from"
+  "kitkatvisuals.setting.holy_auction.egg_limit": "Eggs: many from",
+  "kitkatvisuals.module.mine_hud": "MineHud",
+  "kitkatvisuals.tut.mod.mine_hud": "HolyWorld: auto-mine timers read from holograms. Walk up to a mine on an anarchy and the mod remembers when it resets and what the next one is (rarity, world). Read-only: sends nothing to the server.",
+  "kitkatvisuals.setting.mine_hud.worlds": "Which mines to show",
+  "kitkatvisuals.setting.mine_hud.rarity": "Rarity",
+  "kitkatvisuals.setting.mine_hud.rows": "Rows",
+  "kitkatvisuals.setting.mine_hud.blink": "Blink red at (s)",
+  "kitkatvisuals.setting.mine_hud.interval": "Hologram scan interval (s)",
+  "kitkatvisuals.setting.mine_hud.cycle": "Default mine cycle (s)",
+  "kitkatvisuals.setting.mine_hud.recent": "Show recently reset mines",
+  "kitkatvisuals.setting.mine_hud.sound": "Sound on mine reset",
+  "kitkatvisuals.setting.mine_hud.rescan": "Scan now",
+  "kitkatvisuals.setting.mine_hud.clear": "Clear saved mines"
 }

@@ -937,5 +937,17 @@
   "kitkatvisuals.setting.holy_auction.cheapest": "Подсвечивать самый дешёвый лот",
   "kitkatvisuals.setting.holy_auction.all_lots": "Подкрашивать остальные лоты",
   "kitkatvisuals.setting.holy_auction.eggs": "Подсветка яиц дракона",
-  "kitkatvisuals.setting.holy_auction.egg_limit": "Яиц много от"
+  "kitkatvisuals.setting.holy_auction.egg_limit": "Яиц много от",
+  "kitkatvisuals.module.mine_hud": "MineHud",
+  "kitkatvisuals.tut.mod.mine_hud": "HolyWorld: таймеры автошахт по голограммам. Подойдите к шахте на анархии, и мод запомнит, когда она обновится и какая будет следующая (редкость, мир). Только читает голограммы, ничего не отправляет.",
+  "kitkatvisuals.setting.mine_hud.worlds": "Какие шахты показывать",
+  "kitkatvisuals.setting.mine_hud.rarity": "Редкость",
+  "kitkatvisuals.setting.mine_hud.rows": "Строк в списке",
+  "kitkatvisuals.setting.mine_hud.blink": "Мигать красным за (с)",
+  "kitkatvisuals.setting.mine_hud.interval": "Сканирование голограмм (с)",
+  "kitkatvisuals.setting.mine_hud.cycle": "Период шахты по умолчанию (с)",
+  "kitkatvisuals.setting.mine_hud.recent": "Показывать недавно обновившиеся",
+  "kitkatvisuals.setting.mine_hud.sound": "Звук при обновлении шахты",
+  "kitkatvisuals.setting.mine_hud.rescan": "Сканировать сейчас",
+  "kitkatvisuals.setting.mine_hud.clear": "Очистить сохранённые шахты"
 }
