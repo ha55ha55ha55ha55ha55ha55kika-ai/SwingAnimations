@@ -49,7 +49,8 @@ public final class Updater {
     /** Репозиторий GitHub, из релизов которого берутся обновления (только отсюда и только по HTTPS). */
     private static final String REPO = "ha55ha55ha55ha55ha55ha55kika-ai/SwingAnimations";
     private static final String MOD_ID = "kitkatvisuals";
-    private static final long CHECK_EVERY_MS = 3L * 60 * 60 * 1000;
+    private static final long CHECK_EVERY_MS = 60L * 60 * 1000;
+    private static final long LOOP_EVERY_MS = 10L * 60 * 1000;
     private static final long MAX_JAR_BYTES = 64L * 1024 * 1024;
     private static final String UA = "KitKatVisuals-Updater/1.0 (Minecraft client mod)";
     private static final Pattern SHA = Pattern.compile("sha256:\\s*([0-9a-fA-F]{64})");
@@ -65,6 +66,8 @@ public final class Updater {
     private static final class Cfg {
         boolean enabled = true;
         long last_check;
+        String last_version = "";
+        String known_latest = "";
     }
 
     public static void init() {
@@ -76,7 +79,14 @@ public final class Updater {
             } catch (InterruptedException e) {
                 return;
             }
-            run(false);
+            while (true) {
+                run(false);
+                try {
+                    Thread.sleep(LOOP_EVERY_MS);
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
         }, "KitKatVisuals-Updater");
         t.setDaemon(true);
         t.start();
@@ -158,30 +168,58 @@ public final class Updater {
         Path jar = ownJar();
         if (jar == null) return Result.DEV_BUILD;
         String current = currentVersion();
+        // мод только что обновился или запущен впервые: проверяем сразу, без ожидания
+        if (!current.equals(cfg.last_version)) {
+            cfg.last_version = current;
+            cfg.last_check = 0;
+            cfg.known_latest = "";
+            saveCfg(cfg);
+        }
         Path pending = jar.resolveSibling(jar.getFileName() + ".new");
         Path part = jar.resolveSibling(jar.getFileName() + ".part");
         Files.deleteIfExists(part);
 
-        // скачано раньше, но не установлено (игра закрылась аварийно): ставим при следующем выходе
+        // скачано раньше, но не установлено: запоминаем, но всё равно смотрим, нет ли версии ещё новее
+        String pendingVer = null;
         if (Files.isRegularFile(pending)) {
             String v = readVersion(pending);
-            if (v != null && compare(v, current) > 0) {
-                announce(v, jar, pending);
+            if (v != null && compare(v, current) > 0) pendingVer = v;
+            else Files.deleteIfExists(pending);
+        }
+        String have = pendingVer != null ? pendingVer : current; // самая новая версия, что уже есть у игрока
+
+        // ждём только если мы точно знаем, что новее ничего нет
+        boolean throttled = !force && System.currentTimeMillis() - cfg.last_check < CHECK_EVERY_MS
+                && compare(cfg.known_latest, have) <= 0;
+        if (throttled) {
+            if (pendingVer != null) {
+                announce(pendingVer, jar, pending);
                 return Result.READY;
             }
-            Files.deleteIfExists(pending);
+            return Result.WAIT;
         }
 
-        if (!force && System.currentTimeMillis() - cfg.last_check < CHECK_EVERY_MS) return Result.WAIT;
-
         JsonObject rel = fetchLatest();
-        if (rel == null) return Result.NO_RELEASE;
+        if (rel == null) {
+            if (pendingVer != null) {
+                announce(pendingVer, jar, pending);
+                return Result.READY;
+            }
+            return Result.NO_RELEASE;
+        }
         cfg.last_check = System.currentTimeMillis();
-        saveCfg(cfg);
 
         String tag = str(rel, "tag_name");
         String latest = tag.startsWith("v") ? tag.substring(1) : tag;
-        if (latest.isEmpty() || compare(latest, current) <= 0) return Result.UP_TO_DATE;
+        cfg.known_latest = latest;
+        saveCfg(cfg);
+        if (latest.isEmpty() || compare(latest, have) <= 0) {
+            if (pendingVer != null) {
+                announce(pendingVer, jar, pending);
+                return Result.READY;
+            }
+            return Result.UP_TO_DATE;
+        }
 
         String url = null;
         if (rel.get("assets") != null && rel.get("assets").isJsonArray()) {
@@ -235,14 +273,30 @@ public final class Updater {
         return Result.READY;
     }
 
+    /** Самый новый релиз по номеру версии (а не по флагу latest): игрок всегда прыгает сразу на последнюю версию. */
     private static JsonObject fetchLatest() throws IOException {
-        HttpURLConnection c = open("https://api.github.com/repos/" + REPO + "/releases/latest", true);
+        HttpURLConnection c = open("https://api.github.com/repos/" + REPO + "/releases?per_page=30", true);
         try {
             int code = c.getResponseCode();
             if (code == 404) return null;
             if (code != 200) throw new IOException("GitHub API: HTTP " + code);
             try (Reader r = new InputStreamReader(c.getInputStream(), StandardCharsets.UTF_8)) {
-                return JsonParser.parseReader(r).getAsJsonObject();
+                JsonObject best = null;
+                String bestVer = "";
+                for (JsonElement e : JsonParser.parseReader(r).getAsJsonArray()) {
+                    if (!e.isJsonObject()) continue;
+                    JsonObject o = e.getAsJsonObject();
+                    if (o.has("draft") && o.get("draft").getAsBoolean()) continue;
+                    if (o.has("prerelease") && o.get("prerelease").getAsBoolean()) continue;
+                    String tag = str(o, "tag_name");
+                    String ver = tag.startsWith("v") ? tag.substring(1) : tag;
+                    if (ver.isEmpty()) continue;
+                    if (best == null || compare(ver, bestVer) > 0) {
+                        best = o;
+                        bestVer = ver;
+                    }
+                }
+                return best;
             }
         } finally {
             c.disconnect();
@@ -276,6 +330,7 @@ public final class Updater {
     // ---------- установка ----------
 
     private static void announce(String version, Path jar, Path pending) {
+        if (version.equals(readyVersion)) return; // уже сообщили
         readyVersion = version;
         shown = false;
         registerSwap(jar, pending);
